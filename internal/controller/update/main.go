@@ -33,7 +33,7 @@ func init() {
 func Handler(resp http.ResponseWriter, req *http.Request) {
 	mType, name, value, err := pathMatcher.Match(req.URL.Path)
 	if err != nil {
-		http.Error(resp, err.Error(), 404)
+		http.Error(resp, err.Error(), http.StatusBadRequest)
 		return
 	}
 
