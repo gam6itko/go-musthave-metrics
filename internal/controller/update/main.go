@@ -2,6 +2,7 @@ package update
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/storage/memory"
 	"io"
 	"net/http"
@@ -26,14 +27,20 @@ var pathMatcher PathMatcher
 
 func init() {
 	pathMatcher = PathMatcher{
-		regexp.MustCompile(`^/update/(?P<type>\w+)/(?P<name>\w+)/(?P<value>\d+(?:\.\d+)?)$`),
+		regexp.MustCompile(`^/update/(\w+)/(\w+)/(\w+)$`),
 	}
 }
 
 func Handler(resp http.ResponseWriter, req *http.Request) {
+	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+	if req.Method != http.MethodPost {
+		http.Error(resp, "not found", http.StatusNotFound)
+		return
+	}
+
 	mType, name, value, err := pathMatcher.Match(req.URL.Path)
 	if err != nil {
-		http.Error(resp, err.Error(), http.StatusBadRequest)
+		http.Error(resp, err.Error(), http.StatusNotFound)
 		return
 	}
 
