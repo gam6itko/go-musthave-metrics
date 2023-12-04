@@ -131,11 +131,11 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 					req.Header.Set("Content-Type", "text/plain")
 
 					resp, err := httpClient.Do(req)
-					defer resp.Body.Close()
 					if err != nil {
 						fmt.Printf("client: errors making http request: %s\n", err)
 						break
 					}
+					resp.Body.Close()
 				}
 
 				// PollCount
@@ -151,10 +151,10 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 				req.Header.Set("Content-Type", "text/plain")
 
 				resp, err := httpClient.Do(req)
-				defer resp.Body.Close()
 				if err != nil {
 					fmt.Printf("client: errors making http request: %s\n", err)
 				}
+				resp.Body.Close()
 			}()
 		}
 	}()
