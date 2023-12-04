@@ -55,7 +55,7 @@ func startCollecting(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 	wg.Add(1)
 
-	GAUGE_TO_SEND := []string{
+	GaugeToSend := []string{
 		"Alloc",
 		"BuckHashSys",
 		"Frees",
@@ -104,7 +104,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 				refValue := reflect.ValueOf(stat)
 
-				for _, gName := range GAUGE_TO_SEND {
+				for _, gName := range GaugeToSend {
 					f := reflect.Indirect(refValue).FieldByName(gName)
 
 					var valueStr string
