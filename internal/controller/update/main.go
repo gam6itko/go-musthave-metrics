@@ -64,6 +64,6 @@ func Handler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	io.WriteString(resp, "OK")
 	resp.WriteHeader(http.StatusOK)
+	io.WriteString(resp, "OK")
 }

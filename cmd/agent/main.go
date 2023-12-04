@@ -83,6 +83,8 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 		"StackSys",
 		"Sys",
 		"TotalAlloc",
+		// custom
+		"RandomValue",
 	}
 
 	go func() {
@@ -94,6 +96,8 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 		for true {
 			time.Sleep(10 * time.Second)
+			fmt.Printf("sending metrics: %d\n", stat.PollCount)
+
 			func() {
 				mux.RLock()
 				defer mux.RUnlock()
@@ -131,6 +135,23 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 						fmt.Printf("client: errors making http request: %s\n", err)
 						break
 					}
+				}
+
+				// PollCount
+				req, err := http.NewRequest(
+					http.MethodPost,
+					fmt.Sprintf("%s/update/counter/%s/%d", METRIC_SERVER_HOST, "PollCount", stat.PollCount),
+					nil,
+				)
+				if err != nil {
+					fmt.Printf("client: errors build http request: %s\n", err)
+				}
+
+				req.Header.Set("Content-Type", "text/plain")
+
+				_, err = httpClient.Do(req)
+				if err != nil {
+					fmt.Printf("client: errors making http request: %s\n", err)
 				}
 			}()
 		}
