@@ -130,7 +130,8 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 					req.Header.Set("Content-Type", "text/plain")
 
-					_, err = httpClient.Do(req)
+					resp, err := httpClient.Do(req)
+					defer resp.Body.Close()
 					if err != nil {
 						fmt.Printf("client: errors making http request: %s\n", err)
 						break
@@ -149,7 +150,8 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 				req.Header.Set("Content-Type", "text/plain")
 
-				_, err = httpClient.Do(req)
+				resp, err := httpClient.Do(req)
+				defer resp.Body.Close()
 				if err != nil {
 					fmt.Printf("client: errors making http request: %s\n", err)
 				}
