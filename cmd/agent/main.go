@@ -38,7 +38,7 @@ func startCollecting(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 	go func() {
 		defer wg.Done()
 
-		for true {
+		for {
 			func() {
 				mux.Lock()
 				defer mux.Unlock()
@@ -94,7 +94,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 			Timeout: 30 * time.Second,
 		}
 
-		for true {
+		for {
 			time.Sleep(10 * time.Second)
 			fmt.Printf("sending metrics: %d\n", stat.PollCount)
 
