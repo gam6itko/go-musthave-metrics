@@ -3,7 +3,7 @@ package update
 import (
 	"errors"
 	"fmt"
-	"github.com/gam6itko/go-musthave-metrics/internal/storage/memory"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
 	"net/http"
 	"regexp"
@@ -31,7 +31,7 @@ func init() {
 	}
 }
 
-func Handler(resp http.ResponseWriter, req *http.Request) {
+func Handle(resp http.ResponseWriter, req *http.Request) {
 	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
 	if req.Method != http.MethodPost {
 		http.Error(resp, "not found", http.StatusNotFound)
