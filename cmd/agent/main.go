@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const METRIC_SERVER_HOST = "http://localhost:8080"
+const MetricServerHost = "http://localhost:8080"
 
 type metrics struct {
 	runtime.MemStats
@@ -121,7 +121,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 					req, err := http.NewRequest(
 						http.MethodPost,
-						fmt.Sprintf("%s/update/gauge/%s/%s", METRIC_SERVER_HOST, gName, valueStr),
+						fmt.Sprintf("%s/update/gauge/%s/%s", MetricServerHost, gName, valueStr),
 						nil,
 					)
 					if err != nil {
@@ -140,7 +140,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 				// PollCount
 				req, err := http.NewRequest(
 					http.MethodPost,
-					fmt.Sprintf("%s/update/counter/%s/%d", METRIC_SERVER_HOST, "PollCount", stat.PollCount),
+					fmt.Sprintf("%s/update/counter/%s/%d", MetricServerHost, "PollCount", stat.PollCount),
 					nil,
 				)
 				if err != nil {
