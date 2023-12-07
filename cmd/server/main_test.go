@@ -78,7 +78,7 @@ func TestPostUpdate(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	// preset
-	memory.CounterInc("foo_c", 1)
+	memory.CounterInc("fooCounter", 1)
 	memory.CounterInc("bar_c", 2)
 
 	memory.GaugeSet("foo_g", 1.1)
@@ -101,7 +101,7 @@ func TestGetValue(t *testing.T) {
 		{
 			name:    "counter foo",
 			method:  http.MethodGet,
-			urlPath: "/value/counter/foo_c",
+			urlPath: "/value/counter/fooCounter",
 			want: want{
 				code:  http.StatusOK,
 				value: 1,
