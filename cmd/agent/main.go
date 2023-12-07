@@ -138,7 +138,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 
 					req, err := http.NewRequest(
 						http.MethodPost,
-						fmt.Sprintf("%s/update/gauge/%s/%s", serverAddr, gName, valueStr),
+						fmt.Sprintf("%s/update/gauge/%s/%s", serverAddr.String(), gName, valueStr),
 						nil,
 					)
 					if err != nil {
