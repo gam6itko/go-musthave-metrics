@@ -142,7 +142,7 @@ func TestGetValue(t *testing.T) {
 			method:  http.MethodGet,
 			urlPath: "/value/wtf/wtf",
 			want: want{
-				code: http.StatusBadRequest,
+				code: http.StatusNotFound,
 			},
 		},
 		{
