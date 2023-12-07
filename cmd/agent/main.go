@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
 	"math/rand"
 	"net/http"
 	"reflect"
@@ -18,21 +20,36 @@ type metrics struct {
 	RandomValue float64
 }
 
+var serverAddr commonFlags.NetAddress
+var stat metrics
+var reportInterval uint
+var pollInterval uint
+
+func init() {
+	serverAddr = commonFlags.NewNetAddr("127.0.0.1", 8080)
+
+	_ = flag.Value(&serverAddr)
+	flag.Var(&serverAddr, "a", "Server address host:port")
+	reportInterval = *flag.Uint("r", 10, "Report interval")
+	pollInterval = *flag.Uint("p", 2, "Poll interval")
+	flag.Parse()
+
+	stat = metrics{
+		PollCount: 0,
+	}
+}
+
 func main() {
 	mux := sync.RWMutex{}
 
-	stat := metrics{
-		PollCount: 0,
-	}
-
 	var wg sync.WaitGroup
 
-	startCollecting(&wg, &mux, &stat)
-	startMetricsPulling(&wg, &mux, &stat)
+	startPolling(&wg, &mux)
+	startReporting(&wg, &mux)
 	wg.Wait()
 }
 
-func startCollecting(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
+func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	wg.Add(1)
 
 	go func() {
@@ -47,12 +64,12 @@ func startCollecting(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 				stat.PollCount++
 				stat.RandomValue = rand.Float64()
 			}()
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Duration(pollInterval) * time.Second)
 		}
 	}()
 }
 
-func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
+func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	wg.Add(1)
 
 	GaugeToSend := []string{
@@ -95,7 +112,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 		}
 
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Duration(reportInterval) * time.Second)
 			fmt.Printf("sending metrics: %d\n", stat.PollCount)
 
 			func() {
@@ -121,7 +138,7 @@ func startMetricsPulling(wg *sync.WaitGroup, mux *sync.RWMutex, stat *metrics) {
 
 					req, err := http.NewRequest(
 						http.MethodPost,
-						fmt.Sprintf("%s/update/gauge/%s/%s", MetricServerHost, gName, valueStr),
+						fmt.Sprintf("%s/update/gauge/%s/%s", serverAddr, gName, valueStr),
 						nil,
 					)
 					if err != nil {
