@@ -26,7 +26,7 @@ var reportInterval uint
 var pollInterval uint
 
 func init() {
-	serverAddr = commonFlags.NewNetAddr("127.0.0.1", 8080)
+	serverAddr = commonFlags.NewNetAddr("localhost", 8080)
 
 	_ = flag.Value(&serverAddr)
 	flag.Var(&serverAddr, "a", "Server address host:port")

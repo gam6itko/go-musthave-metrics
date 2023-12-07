@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	bindAddr := commonFlags.NewNetAddr("0.0.0.0", 8080)
+	bindAddr := commonFlags.NewNetAddr("localhost", 8080)
 
 	_ = flag.Value(&bindAddr)
 	flag.Var(&bindAddr, "a", "Net address host:port")
