@@ -158,7 +158,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				// PollCount
 				req, err := http.NewRequest(
 					http.MethodPost,
-					fmt.Sprintf("%s/update/counter/%s/%d", MetricServerHost, "PollCount", stat.PollCount),
+					fmt.Sprintf("%s/update/counter/%s/%d", serverAddr.String(), "PollCount", stat.PollCount),
 					nil,
 				)
 				if err != nil {
