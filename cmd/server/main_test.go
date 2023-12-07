@@ -136,7 +136,7 @@ func TestGetValue(t *testing.T) {
 			},
 		},
 
-		// not found
+		// incorrect metric
 		{
 			name:    "incorrect type",
 			method:  http.MethodGet,
@@ -146,9 +146,17 @@ func TestGetValue(t *testing.T) {
 			},
 		},
 		{
-			name:    "not found",
+			name:    "gauge not exists",
 			method:  http.MethodGet,
 			urlPath: "/value/gauge/wtf",
+			want: want{
+				code: http.StatusNotFound,
+			},
+		},
+		{
+			name:    "counter not exists",
+			method:  http.MethodGet,
+			urlPath: "/value/counter/testSetGet123",
 			want: want{
 				code: http.StatusNotFound,
 			},
