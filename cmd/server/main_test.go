@@ -1,13 +1,37 @@
-package update
+package main
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestHandler(t *testing.T) {
+func testRequest(
+	t *testing.T,
+	ts *httptest.Server,
+	method,
+	path string,
+) (*http.Response, string) {
+	req, err := http.NewRequest(method, ts.URL+path, nil)
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	return resp, string(respBody)
+}
+
+func TestPostUpdate(t *testing.T) {
+	ts := httptest.NewServer(newRouter())
+	defer ts.Close()
+
 	type want struct {
 		code int
 	}
@@ -44,13 +68,8 @@ func TestHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.urlPath, nil)
-			resp := httptest.NewRecorder()
-			Handle(resp, req)
-
-			res := resp.Result()
-			assert.Equal(t, tt.want.code, res.StatusCode)
-			defer res.Body.Close()
+			result, _ := testRequest(t, ts, tt.method, tt.urlPath)
+			assert.Equal(t, tt.want.code, result.StatusCode)
 		})
 	}
 }
