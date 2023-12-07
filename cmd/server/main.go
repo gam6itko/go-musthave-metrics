@@ -60,7 +60,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
-		io.WriteString(resp, fmt.Sprintf("%f", val))
+		io.WriteString(resp, fmt.Sprintf("%g", val))
 
 	default:
 		http.Error(resp, "invalid metric type", http.StatusNotFound)
