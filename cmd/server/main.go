@@ -37,8 +37,10 @@ func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getValueHandler(resp http.ResponseWriter, req *http.Request) {
+	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+
 	name := chi.URLParam(req, "name")
-	if "" == name {
+	if name == "" {
 		http.Error(resp, "Bad name", http.StatusNotFound)
 		return
 	}
@@ -59,12 +61,14 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 		io.WriteString(resp, fmt.Sprintf("%f", val))
 
 	default:
-		http.Error(resp, "invalid metric type", http.StatusBadRequest)
+		http.Error(resp, "invalid metric type", http.StatusNotFound)
 		return
 	}
 }
 
 func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
+	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+
 	name := strings.ToLower(chi.URLParam(req, "name"))
 	value := strings.ToLower(chi.URLParam(req, "value"))
 
