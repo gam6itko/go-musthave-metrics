@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-const MetricServerHost = "http://localhost:8080"
-
 type metrics struct {
 	runtime.MemStats
 	PollCount   int64
@@ -138,7 +136,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 
 					req, err := http.NewRequest(
 						http.MethodPost,
-						fmt.Sprintf("%s/update/gauge/%s/%s", serverAddr.String(), gName, valueStr),
+						fmt.Sprintf("http://%s/update/gauge/%s/%s", serverAddr.String(), gName, valueStr),
 						nil,
 					)
 					if err != nil {
@@ -158,7 +156,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				// PollCount
 				req, err := http.NewRequest(
 					http.MethodPost,
-					fmt.Sprintf("%s/update/counter/%s/%d", serverAddr.String(), "PollCount", stat.PollCount),
+					fmt.Sprintf("http://%s/update/counter/%s/%d", serverAddr.String(), "PollCount", stat.PollCount),
 					nil,
 				)
 				if err != nil {
