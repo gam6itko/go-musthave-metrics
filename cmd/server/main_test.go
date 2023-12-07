@@ -69,6 +69,7 @@ func TestPostUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, _ := testRequest(t, ts, tt.method, tt.urlPath)
+			defer result.Body.Close()
 			assert.Equal(t, tt.want.code, result.StatusCode)
 		})
 	}
