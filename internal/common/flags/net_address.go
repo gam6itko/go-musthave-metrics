@@ -9,10 +9,10 @@ import (
 
 type NetAddress struct {
 	Host string
-	Port uint
+	Port uint16
 }
 
-func NewNetAddr(host string, port uint) NetAddress {
+func NewNetAddr(host string, port uint16) NetAddress {
 	return NetAddress{host, port}
 }
 
@@ -34,7 +34,7 @@ func (o *NetAddress) Set(flagValue string) error {
 		if port, err := strconv.ParseUint(slice[1], 10, 16); err != nil {
 			return err
 		} else {
-			o.Port = uint(port)
+			o.Port = uint16(port)
 		}
 	default:
 		return errors.New("invalid attr count")
