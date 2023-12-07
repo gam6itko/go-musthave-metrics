@@ -37,7 +37,7 @@ func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getValueHandler(resp http.ResponseWriter, req *http.Request) {
-	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+	//fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
 
 	name := chi.URLParam(req, "name")
 	if name == "" {
@@ -67,7 +67,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 }
 
 func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
-	fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+	//fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
 
 	name := strings.ToLower(chi.URLParam(req, "name"))
 	value := strings.ToLower(chi.URLParam(req, "value"))
