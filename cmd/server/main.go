@@ -50,6 +50,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 		val, exists := memory.CounterGet(name)
 		if !exists {
 			http.Error(resp, "Not found", http.StatusNotFound)
+			return
 		}
 		io.WriteString(resp, fmt.Sprintf("%d", val))
 
@@ -57,6 +58,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 		val, exists := memory.GaugeGet(name)
 		if !exists {
 			http.Error(resp, "Not found", http.StatusNotFound)
+			return
 		}
 		io.WriteString(resp, fmt.Sprintf("%f", val))
 
