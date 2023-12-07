@@ -21,7 +21,7 @@ func newRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Get("/", getAllMetrics)
-	r.Get("/value/{type}/{name}/{value}", getValueHandler)
+	r.Get("/value/{type}/{name}", getValueHandler)
 	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
 
 	return r
@@ -38,6 +38,10 @@ func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
 
 func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
+	if "" == name {
+		http.Error(resp, "Bad name", http.StatusNotFound)
+		return
+	}
 
 	switch chi.URLParam(req, "type") {
 	case "counter":
@@ -53,6 +57,10 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "Not found", http.StatusNotFound)
 		}
 		io.WriteString(resp, fmt.Sprintf("%f", val))
+
+	default:
+		http.Error(resp, "invalid metric type", http.StatusBadRequest)
+		return
 	}
 }
 
@@ -68,6 +76,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 		memory.CounterInc(name, v)
+
 	case "gauge":
 		v, err := strconv.ParseFloat(value, 64)
 		if err != nil {
@@ -75,6 +84,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 		memory.GaugeSet(name, v)
+
 	default:
 		http.Error(resp, "invalid metric type", http.StatusBadRequest)
 		return

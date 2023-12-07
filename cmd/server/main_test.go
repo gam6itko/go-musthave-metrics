@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -61,6 +62,93 @@ func TestPostUpdate(t *testing.T) {
 			name:    "not found",
 			method:  http.MethodPost,
 			urlPath: "/update/gauge/wtf",
+			want: want{
+				code: http.StatusNotFound,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := testRequest(t, ts, tt.method, tt.urlPath)
+			defer result.Body.Close()
+			assert.Equal(t, tt.want.code, result.StatusCode)
+		})
+	}
+}
+
+func TestGetValue(t *testing.T) {
+	// preset
+	memory.CounterInc("foo_c", 1)
+	memory.CounterInc("bar_c", 2)
+
+	memory.GaugeSet("foo_g", 1.1)
+	memory.GaugeSet("bar_g", 2.2)
+
+	ts := httptest.NewServer(newRouter())
+	defer ts.Close()
+
+	type want struct {
+		code  int
+		value any
+	}
+	tests := []struct {
+		name    string
+		method  string
+		urlPath string
+		want    want
+	}{
+		// counter
+		{
+			name:    "counter foo",
+			method:  http.MethodGet,
+			urlPath: "/value/counter/foo_c",
+			want: want{
+				code:  http.StatusOK,
+				value: 1,
+			},
+		},
+		{
+			name:    "counter bar",
+			method:  http.MethodGet,
+			urlPath: "/value/counter/bar_c",
+			want: want{
+				code:  http.StatusOK,
+				value: 2,
+			},
+		},
+		// gauge
+		{
+			name:    "counter foo",
+			method:  http.MethodGet,
+			urlPath: "/value/gauge/foo_g",
+			want: want{
+				code:  http.StatusOK,
+				value: 1.1,
+			},
+		},
+		{
+			name:    "counter bar",
+			method:  http.MethodGet,
+			urlPath: "/value/gauge/bar_g",
+			want: want{
+				code:  http.StatusOK,
+				value: 2.2,
+			},
+		},
+
+		// not found
+		{
+			name:    "incorrect type",
+			method:  http.MethodGet,
+			urlPath: "/value/wtf/wtf",
+			want: want{
+				code: http.StatusBadRequest,
+			},
+		},
+		{
+			name:    "not found",
+			method:  http.MethodGet,
+			urlPath: "/value/gauge/wtf",
 			want: want{
 				code: http.StatusNotFound,
 			},
