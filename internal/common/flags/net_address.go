@@ -31,7 +31,7 @@ func (o *NetAddress) Set(flagValue string) error {
 		o.Host = slice[0]
 	case 2:
 		o.Host = slice[0]
-		if port, err := strconv.ParseInt(slice[1], 10, 16); err != nil {
+		if port, err := strconv.ParseUint(slice[1], 10, 16); err != nil {
 			return err
 		} else {
 			o.Port = uint(port)
