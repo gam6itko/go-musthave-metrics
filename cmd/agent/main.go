@@ -6,8 +6,10 @@ import (
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
 	"math/rand"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -31,6 +33,23 @@ func init() {
 	reportInterval = *flag.Uint("r", 10, "Report interval")
 	pollInterval = *flag.Uint("p", 2, "Poll interval")
 	flag.Parse()
+
+	// read from env
+	if envVal := os.Getenv("ADDRESS"); envVal != "" {
+		if err := serverAddr.FromString(envVal); err != nil {
+			panic(err)
+		}
+	}
+	if envVal := os.Getenv("REPORT_INTERVAL"); envVal != "" {
+		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
+			reportInterval = uint(val)
+		}
+	}
+	if envVal := os.Getenv("POLL_INTERVAL"); envVal != "" {
+		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
+			pollInterval = uint(val)
+		}
+	}
 
 	stat = metrics{
 		PollCount: 0,

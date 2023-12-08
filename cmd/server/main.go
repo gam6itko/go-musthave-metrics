@@ -8,12 +8,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
 
 func main() {
 	bindAddr := commonFlags.NewNetAddr("localhost", 8080)
+
+	if envVal := os.Getenv("ADDRESS"); envVal != "" {
+		if err := bindAddr.FromString(envVal); err != nil {
+			panic(err)
+		}
+	}
 
 	_ = flag.Value(&bindAddr)
 	flag.Var(&bindAddr, "a", "Net address host:port")
