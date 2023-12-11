@@ -30,9 +30,12 @@ func init() {
 
 	_ = flag.Value(&serverAddr)
 	flag.Var(&serverAddr, "a", "Server address host:port")
-	reportInterval = *flag.Uint("r", 10, "Report interval")
-	pollInterval = *flag.Uint("p", 2, "Poll interval")
+	reportIntervalF := flag.Uint("r", 10, "Report interval")
+	pollIntervalF := flag.Uint("p", 2, "Poll interval")
 	flag.Parse()
+
+	reportInterval = *reportIntervalF
+	pollInterval = *pollIntervalF
 
 	// read from env
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
