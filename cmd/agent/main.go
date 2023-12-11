@@ -167,9 +167,9 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 					resp, err := httpClient.Do(req)
 					if err != nil {
 						fmt.Printf("client: errors making http request: %s\n", err)
-						break
+					} else {
+						resp.Body.Close()
 					}
-					defer resp.Body.Close()
 				}
 
 				// PollCount
@@ -187,8 +187,9 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				resp, err := httpClient.Do(req)
 				if err != nil {
 					fmt.Printf("client: errors making http request: %s\n", err)
+				} else {
+					resp.Body.Close()
 				}
-				defer resp.Body.Close()
 			}()
 		}
 	}()
