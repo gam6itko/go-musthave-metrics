@@ -164,15 +164,15 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 					)
 					if err != nil {
 						fmt.Printf("client: errors build http request: %s\n", err)
-					}
-
-					req.Header.Set("Content-Type", "text/plain")
-
-					resp, err := httpClient.Do(req)
-					if err != nil {
-						fmt.Printf("client: errors making http request: %s\n", err)
 					} else {
-						resp.Body.Close()
+						req.Header.Set("Content-Type", "text/plain")
+
+						resp, err := httpClient.Do(req)
+						if err != nil {
+							fmt.Printf("client: errors making http request: %s\n", err)
+						} else {
+							resp.Body.Close()
+						}
 					}
 				}
 
@@ -184,15 +184,15 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				)
 				if err != nil {
 					fmt.Printf("client: errors build http request: %s\n", err)
-				}
-
-				req.Header.Set("Content-Type", "text/plain")
-
-				resp, err := httpClient.Do(req)
-				if err != nil {
-					fmt.Printf("client: errors making http request: %s\n", err)
 				} else {
-					resp.Body.Close()
+					req.Header.Set("Content-Type", "text/plain")
+
+					resp, err := httpClient.Do(req)
+					if err != nil {
+						fmt.Printf("client: errors making http request: %s\n", err)
+					} else {
+						resp.Body.Close()
+					}
 				}
 			}()
 		}
