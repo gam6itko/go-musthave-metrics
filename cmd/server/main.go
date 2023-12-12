@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
 	"io"
@@ -15,20 +14,21 @@ import (
 )
 
 func main() {
-	bindAddr := commonFlags.NewNetAddr("localhost", 8080)
+	var bindAddr string = "localhost:8080"
 
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
-		if err := bindAddr.FromString(envVal); err != nil {
-			panic(err)
-		}
+		bindAddr = envVal
 	}
 
-	_ = flag.Value(&bindAddr)
-	flag.Var(&bindAddr, "a", "Net address host:port")
+	fBindAddrRef := flag.String("a", "", "Net address host:port")
 	flag.Parse()
 
-	fmt.Printf("Server start. Listen on %s", bindAddr.String())
-	err := http.ListenAndServe(bindAddr.String(), newRouter())
+	if *fBindAddrRef != "" {
+		bindAddr = *fBindAddrRef
+	}
+
+	fmt.Printf("Server start. Listen on %s", bindAddr)
+	err := http.ListenAndServe(bindAddr, newRouter())
 	log.Printf("ListenAndServe returns: %s", err)
 }
 
