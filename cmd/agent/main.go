@@ -131,8 +131,9 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 			Timeout: 30 * time.Second,
 		}
 
+		sleepDuration := time.Duration(reportInterval) * time.Second
 		for {
-			time.Sleep(time.Duration(reportInterval) * time.Second)
+			time.Sleep(sleepDuration)
 			fmt.Printf("sending metrics: %d\n", stat.PollCount)
 
 			func() {
