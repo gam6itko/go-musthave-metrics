@@ -19,11 +19,8 @@ func GaugeSet(name string, val float64) {
 }
 
 func GaugeGet(name string) (float64, bool) {
-	if val, exists := storage.gauge[name]; exists {
-		return val, true
-	}
-
-	return 0, false
+	val, ok := storage.gauge[name]
+	return val, ok
 }
 
 func GaugeAll() map[string]float64 {
