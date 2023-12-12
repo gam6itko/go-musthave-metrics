@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	var bindAddr string = "localhost:8080"
+	bindAddr := "localhost:8080"
 
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
 		bindAddr = envVal
