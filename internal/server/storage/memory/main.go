@@ -31,9 +31,6 @@ func GaugeAll() map[string]float64 {
 }
 
 func CounterInc(name string, val int64) {
-	if _, exists := storage.counter[name]; !exists {
-		storage.counter[name] = 0
-	}
 	storage.counter[name] += val
 }
 
