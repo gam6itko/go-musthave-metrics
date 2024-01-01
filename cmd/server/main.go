@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -27,22 +27,26 @@ func main() {
 		bindAddr = *fBindAddrRef
 	}
 
-	fmt.Printf("Server start. Listen on %s", bindAddr)
-	err := http.ListenAndServe(bindAddr, newRouter())
-	log.Printf("ListenAndServe returns: %s", err)
+	Log.Info("Starting server", zap.String("addr", bindAddr))
+	if err := http.ListenAndServe(bindAddr, newRouter()); err != nil {
+		// записываем в лог ошибку, если сервер не запустился
+		Log.Fatal(err.Error(), zap.String("event", "start server"))
+	}
 }
 
 func newRouter() chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/", getAllMetrics)
+	r.Use(requestLoggingMiddleware)
+
+	r.Get("/", getAllMetricsHandler)
 	r.Get("/value/{type}/{name}", getValueHandler)
 	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
 
 	return r
 }
 
-func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
+func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	for name, val := range memory.CounterAll() {
 		io.WriteString(resp, fmt.Sprintf("%s: %d\n", name, val))
 	}
