@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -27,22 +28,26 @@ func main() {
 		bindAddr = *fBindAddrRef
 	}
 
-	fmt.Printf("Server start. Listen on %s", bindAddr)
-	err := http.ListenAndServe(bindAddr, newRouter())
-	log.Printf("ListenAndServe returns: %s", err)
+	Log.Info("Starting server", zap.String("addr", bindAddr))
+	if err := http.ListenAndServe(bindAddr, newRouter()); err != nil {
+		// записываем в лог ошибку, если сервер не запустился
+		Log.Fatal(err.Error(), zap.String("event", "start server"))
+	}
 }
 
 func newRouter() chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/", getAllMetrics)
+	r.Use(requestLoggingMiddleware)
+
+	r.Get("/", getAllMetricsHandler)
 	r.Get("/value/{type}/{name}", getValueHandler)
 	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
 
 	return r
 }
 
-func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
+func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	for name, val := range memory.CounterAll() {
 		io.WriteString(resp, fmt.Sprintf("%s: %d\n", name, val))
 	}
@@ -113,4 +118,21 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 
 	resp.WriteHeader(http.StatusOK)
 	io.WriteString(resp, "OK")
+}
+
+// HTTP middleware setting a value on the request context
+func MyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// create new context from `r` request context, and assign key `"user"`
+		// to value of `"123"`
+		ctx := context.WithValue(r.Context(), "user", "123")
+
+		// call the next handler in the chain, passing the response writer and
+		// the updated request object with the new context value.
+		//
+		// note: context.Context values are nested, so any previously set
+		// values will be accessible as well, and the new `"user"` key
+		// will be accessible from this point forward.
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
