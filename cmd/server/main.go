@@ -38,8 +38,8 @@ func newRouter() chi.Router {
 	r.Get("/value/{type}/{name}", getValueHandler)
 	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
 	// json
-	r.Post("/value/", postValueJsonHandler)
-	r.Post("/update/", postUpdateJsonHandler)
+	r.Post("/value/", postValueJSONHandler)
+	r.Post("/update/", postUpdateJSONHandler)
 
 	return r
 }
