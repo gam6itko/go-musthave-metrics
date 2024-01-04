@@ -82,6 +82,8 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 }
 
 func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Content-Type", "application/json")
+
 	metric, err := decodeMetricsRequest(req)
 	if err != nil {
 		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
@@ -117,11 +119,12 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(http.StatusOK)
 }
 
 func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Content-Type", "application/json")
+
 	metric, err := decodeMetricsRequest(req)
 	if err != nil {
 		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
@@ -151,7 +154,6 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(http.StatusOK)
 }
 
