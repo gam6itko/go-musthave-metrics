@@ -84,7 +84,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	metric, err := decodeMetricsRequest(req)
 	if err != nil {
-		http.Error(resp, err.Error(), http.StatusBadRequest)
+		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
 		Log.Warn(err.Error())
 		return
 	}
@@ -93,7 +93,7 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	case "counter":
 		val, exists := memory.CounterGet(metric.ID)
 		if !exists {
-			http.Error(resp, "Not found", http.StatusNotFound)
+			httpErrorJSON(resp, "Not found", http.StatusNotFound)
 			return
 		}
 		metric.Delta = val
@@ -101,19 +101,19 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	case "gauge":
 		val, exists := memory.GaugeGet(metric.ID)
 		if !exists {
-			http.Error(resp, "Not found", http.StatusNotFound)
+			httpErrorJSON(resp, "Not found", http.StatusNotFound)
 			return
 		}
 		metric.Value = val
 
 	default:
-		http.Error(resp, "invalid metric type", http.StatusNotFound)
+		httpErrorJSON(resp, "invalid metric type", http.StatusNotFound)
 		return
 	}
 
 	encoder := json.NewEncoder(resp)
 	if err := encoder.Encode(metric); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -124,7 +124,7 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	metric, err := decodeMetricsRequest(req)
 	if err != nil {
-		http.Error(resp, err.Error(), http.StatusBadRequest)
+		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
 		Log.Warn(err.Error())
 		return
 	}
@@ -132,7 +132,7 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	switch strings.ToLower(metric.MType) {
 	case "counter":
 		if metric.Delta <= 0 {
-			http.Error(resp, "counter delta must be positive", http.StatusBadRequest)
+			httpErrorJSON(resp, "counter delta must be positive", http.StatusBadRequest)
 			return
 		}
 		memory.CounterInc(metric.ID, metric.Delta)
@@ -141,13 +141,13 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		memory.GaugeSet(metric.ID, metric.Value)
 
 	default:
-		http.Error(resp, "invalid metric type", http.StatusBadRequest)
+		httpErrorJSON(resp, "invalid metric type", http.StatusBadRequest)
 		return
 	}
 
 	encoder := json.NewEncoder(resp)
 	if err := encoder.Encode(metric); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -172,4 +172,10 @@ func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
 	}
 
 	return metric, nil
+}
+
+func httpErrorJSON(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	fmt.Fprintf(w, `{"error":"%s"}`, message)
 }
