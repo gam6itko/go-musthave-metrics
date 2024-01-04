@@ -113,7 +113,7 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	encoder := json.NewEncoder(resp)
 	if err := encoder.Encode(metric); err != nil {
-		http.Error(resp, err.Error(), http.StatusNotFound)
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -145,6 +145,13 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	encoder := json.NewEncoder(resp)
+	if err := encoder.Encode(metric); err != nil {
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(http.StatusOK)
 }
 
