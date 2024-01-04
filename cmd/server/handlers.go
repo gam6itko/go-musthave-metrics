@@ -91,19 +91,19 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch metric.MType {
 	case "counter":
-		val, exists := memory.CounterGet(metric.ID)
-		if !exists {
-			httpErrorJSON(resp, "Not found", http.StatusNotFound)
-			return
-		}
+		val, _ := memory.CounterGet(metric.ID)
+		//if !exists {
+		//	httpErrorJSON(resp, "Not found", http.StatusNotFound)
+		//	return
+		//}
 		metric.Delta = val
 
 	case "gauge":
-		val, exists := memory.GaugeGet(metric.ID)
-		if !exists {
-			httpErrorJSON(resp, "Not found", http.StatusNotFound)
-			return
-		}
+		val, _ := memory.GaugeGet(metric.ID)
+		//if !exists {
+		//	httpErrorJSON(resp, "Not found", http.StatusNotFound)
+		//	return
+		//}
 		metric.Value = val
 
 	default:
