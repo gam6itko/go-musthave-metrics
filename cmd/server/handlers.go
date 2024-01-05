@@ -94,19 +94,11 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	switch metric.MType {
 	case "counter":
 		val, _ := memory.CounterGet(metric.ID)
-		//if !exists {
-		//	httpErrorJSON(resp, "Not found", http.StatusNotFound)
-		//	return
-		//}
-		metric.Delta = val
+		metric.Delta = &val
 
 	case "gauge":
 		val, _ := memory.GaugeGet(metric.ID)
-		//if !exists {
-		//	httpErrorJSON(resp, "Not found", http.StatusNotFound)
-		//	return
-		//}
-		metric.Value = val
+		metric.Value = &val
 
 	default:
 		httpErrorJSON(resp, "invalid metric type", http.StatusNotFound)
@@ -134,14 +126,14 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch strings.ToLower(metric.MType) {
 	case "counter":
-		if metric.Delta <= 0 {
+		if *metric.Delta <= 0 {
 			httpErrorJSON(resp, "counter delta must be positive", http.StatusBadRequest)
 			return
 		}
-		memory.CounterInc(metric.ID, metric.Delta)
+		memory.CounterInc(metric.ID, *metric.Delta)
 
 	case "gauge":
-		memory.GaugeSet(metric.ID, metric.Value)
+		memory.GaugeSet(metric.ID, *metric.Value)
 
 	default:
 		httpErrorJSON(resp, "invalid metric type", http.StatusBadRequest)
