@@ -15,15 +15,15 @@ import (
 func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 
-	io.WriteString(resp, fmt.Sprint("<h2>All metrics</h2>"))
+	io.WriteString(resp, "<h2>All metrics</h2>")
 
-	io.WriteString(resp, fmt.Sprint("<h2>Counter</h2>"))
+	io.WriteString(resp, "<h2>Counter</h2>")
 	for name, val := range memory.CounterAll() {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
+		io.WriteString(resp, fmt.Sprint("<div>%s: %d</div>", name, val))
 	}
-	io.WriteString(resp, fmt.Sprint("<h2>Gauge</h2>"))
+	io.WriteString(resp, "<h2>Gauge</h2>")
 	for name, val := range memory.GaugeAll() {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
+		io.WriteString(resp, fmt.Sprint("<div>%s: %f</div>", name, val))
 	}
 }
 
