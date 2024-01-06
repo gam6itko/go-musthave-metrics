@@ -13,6 +13,7 @@ import (
 )
 
 func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
+	req.Header.Set("Content-Type", "text/html") //iter8 fix
 	for name, val := range memory.CounterAll() {
 		io.WriteString(resp, fmt.Sprintf("%s: %d\n", name, val))
 	}
