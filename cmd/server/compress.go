@@ -31,7 +31,8 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
-	canCompress := slices.Contains(compressEnabledForTypeList, c.w.Header().Get("Content-Type"))
+	contentType := c.w.Header().Get("Content-Type")
+	canCompress := slices.Contains(compressEnabledForTypeList, contentType)
 	if canCompress && statusCode < 300 {
 		c.w.Header().Set("Content-Encoding", "gzip")
 	}
@@ -39,8 +40,12 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	canCompress := slices.Contains(compressEnabledForTypeList, c.w.Header().Get("Content-Type"))
+	contentType := c.w.Header().Get("Content-Type")
+	canCompress := slices.Contains(compressEnabledForTypeList, contentType)
 	if canCompress {
+		if c.w.Header().Get("Content-Encoding") == "" {
+			c.w.Header().Set("Content-Encoding", "gzip")
+		}
 		return c.zw.Write(p)
 	}
 	return c.w.Write(p)
