@@ -4,7 +4,13 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"slices"
 )
+
+var compressEnabledForTypeList = []string{
+	"application/json",
+	"text/html",
+}
 
 // compressWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
 // сжимать передаваемые данные и выставлять правильные HTTP-заголовки
@@ -24,15 +30,20 @@ func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
-func (c *compressWriter) Write(p []byte) (int, error) {
-	return c.zw.Write(p)
-}
-
 func (c *compressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 {
+	canCompress := slices.Contains(compressEnabledForTypeList, c.w.Header().Get("Content-Type"))
+	if canCompress && statusCode < 300 {
 		c.w.Header().Set("Content-Encoding", "gzip")
 	}
 	c.w.WriteHeader(statusCode)
+}
+
+func (c *compressWriter) Write(p []byte) (int, error) {
+	canCompress := slices.Contains(compressEnabledForTypeList, c.w.Header().Get("Content-Type"))
+	if canCompress {
+		return c.zw.Write(p)
+	}
+	return c.w.Write(p)
 }
 
 // Close закрывает gzip.Writer и досылает все данные из буфера.

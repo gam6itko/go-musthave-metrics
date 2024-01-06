@@ -13,7 +13,7 @@ import (
 )
 
 func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
-	req.Header.Set("Content-Type", "text/html") //iter8 fix
+	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 	for name, val := range memory.CounterAll() {
 		io.WriteString(resp, fmt.Sprintf("%s: %d\n", name, val))
 	}
@@ -106,13 +106,17 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encoder := json.NewEncoder(resp)
-	if err := encoder.Encode(metric); err != nil {
+	b, err := json.Marshal(metric)
+	if err != nil {
 		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	resp.WriteHeader(http.StatusOK)
+	_, err = resp.Write(b)
+	if err != nil {
+		Log.Error(err.Error())
+	}
 }
 
 func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
@@ -141,13 +145,17 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encoder := json.NewEncoder(resp)
-	if err := encoder.Encode(metric); err != nil {
+	b, err := json.Marshal(resp)
+	if err != nil {
 		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	resp.WriteHeader(http.StatusOK)
+	_, err = resp.Write(b)
+	if err != nil {
+		Log.Error(err.Error())
+	}
 }
 
 func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
