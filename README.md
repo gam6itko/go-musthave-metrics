@@ -1,5 +1,15 @@
 # go-musthave-metrics
 
+## env
+
+Значения по-умолчанию
+```dotenv
+ADDRESS=localhost:8080
+STORE_INTERVAL=300
+FILE_STORAGE_PATH=/tmp/metrics-db.json
+RESTORE=true
+```
+
 ## iter7
 
 ### update
