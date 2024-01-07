@@ -2,25 +2,36 @@ package main
 
 import (
 	"flag"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
+	"time"
 )
 
+var MetricStorage storage.IMetricStorage
+
 func main() {
-	bindAddr := "localhost:8080"
+	var fsConfig = &file.Config{} //create from flags
+	var bindAddr string
 
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
 		bindAddr = envVal
 	}
 
-	fBindAddrRef := flag.String("a", "", "Net address host:port")
+	flag.StringVar(&bindAddr, "a", "localhost:8080", "Net address host:port")
+	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
-	if *fBindAddrRef != "" {
-		bindAddr = *fBindAddrRef
+	if err := file.FromEnv(fsConfig); err != nil {
+		panic(err)
 	}
+
+	// Сохраняем метрики по интервалу
+	MetricStorage = newFileStorage(fsConfig)
 
 	Log.Info("Starting server", zap.String("addr", bindAddr))
 	if err := http.ListenAndServe(bindAddr, newRouter()); err != nil {
@@ -43,4 +54,32 @@ func newRouter() chi.Router {
 	r.Post("/update/", postUpdateJSONHandler)
 
 	return r
+}
+
+func newFileStorage(fsConfig *file.Config) storage.IMetricStorage {
+	sync := fsConfig.StoreInterval == 0
+	fs := file.NewStorage(
+		memory.NewStorage(),
+		fsConfig.FileStoragePath,
+		sync,
+	)
+
+	if fsConfig.Restore {
+		err := fs.Load()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if !sync {
+		// Сохраняем каждые N секунд, если нет флага SYNC
+		go func() {
+			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
+			for range ticker.C {
+				fs.Save() // грязновато, по идее нужно делать какой-то bridge-saver
+			}
+		}()
+	}
+
+	return *fs
 }

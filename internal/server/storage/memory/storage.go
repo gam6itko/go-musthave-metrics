@@ -12,31 +12,31 @@ func NewStorage() Storage {
 	}
 }
 
-func (s Storage) GaugeSet(name string, val float64) {
-	s.gauge[name] = val
+func (ths Storage) GaugeSet(name string, val float64) {
+	ths.gauge[name] = val
 }
 
-func (s Storage) GaugeGet(name string) (float64, bool) {
-	val, ok := s.gauge[name]
+func (ths Storage) GaugeGet(name string) (float64, bool) {
+	val, ok := ths.gauge[name]
 	return val, ok
 }
 
-func (s Storage) GaugeAll() map[string]float64 {
-	return s.gauge
+func (ths Storage) GaugeAll() map[string]float64 {
+	return ths.gauge
 }
 
-func (s Storage) CounterInc(name string, val int64) {
-	s.counter[name] += val
+func (ths Storage) CounterInc(name string, val int64) {
+	ths.counter[name] += val
 }
 
-func (s Storage) CounterGet(name string) (int64, bool) {
-	if val, exists := s.counter[name]; exists {
+func (ths Storage) CounterGet(name string) (int64, bool) {
+	if val, exists := ths.counter[name]; exists {
 		return val, true
 	}
 
 	return 0, false
 }
 
-func (s Storage) CounterAll() map[string]int64 {
-	return s.counter
+func (ths Storage) CounterAll() map[string]int64 {
+	return ths.counter
 }

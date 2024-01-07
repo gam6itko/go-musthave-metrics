@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
@@ -18,12 +17,12 @@ func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	io.WriteString(resp, "<h2>All metrics</h2>")
 
 	io.WriteString(resp, "<h2>Counter</h2>")
-	for name, val := range memory.CounterAll() {
+	for name, val := range MetricStorage.CounterAll() {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
 	}
 
 	io.WriteString(resp, "<h2>Gauge</h2>")
-	for name, val := range memory.GaugeAll() {
+	for name, val := range MetricStorage.GaugeAll() {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
 	}
 }
@@ -37,7 +36,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch chi.URLParam(req, "type") {
 	case "counter":
-		val, exists := memory.CounterGet(name)
+		val, exists := MetricStorage.CounterGet(name)
 		if !exists {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
@@ -45,7 +44,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 		io.WriteString(resp, fmt.Sprintf("%d", val))
 
 	case "gauge":
-		val, exists := memory.GaugeGet(name)
+		val, exists := MetricStorage.GaugeGet(name)
 		if !exists {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
@@ -69,7 +68,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		memory.CounterInc(name, v)
+		MetricStorage.CounterInc(name, v)
 
 	case "gauge":
 		v, err := strconv.ParseFloat(value, 64)
@@ -77,7 +76,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid gauge value", http.StatusBadRequest)
 			return
 		}
-		memory.GaugeSet(name, v)
+		MetricStorage.GaugeSet(name, v)
 
 	default:
 		http.Error(resp, "invalid metric type", http.StatusBadRequest)
@@ -100,11 +99,11 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch metric.MType {
 	case "counter":
-		val, _ := memory.CounterGet(metric.ID)
+		val, _ := MetricStorage.CounterGet(metric.ID)
 		metric.Delta = &val
 
 	case "gauge":
-		val, _ := memory.GaugeGet(metric.ID)
+		val, _ := MetricStorage.GaugeGet(metric.ID)
 		metric.Value = &val
 
 	default:
@@ -141,10 +140,10 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 			httpErrorJSON(resp, "counter delta must be positive", http.StatusBadRequest)
 			return
 		}
-		memory.CounterInc(metric.ID, *metric.Delta)
+		MetricStorage.CounterInc(metric.ID, *metric.Delta)
 
 	case "gauge":
-		memory.GaugeSet(metric.ID, *metric.Value)
+		MetricStorage.GaugeSet(metric.ID, *metric.Value)
 
 	default:
 		httpErrorJSON(resp, "invalid metric type", http.StatusBadRequest)
