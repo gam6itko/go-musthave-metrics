@@ -15,7 +15,8 @@ func Test_Storage_SaveLoad(t *testing.T) {
 	t.Run("save not sync", func(t *testing.T) {
 		ms := memory.NewStorage()
 
-		s := NewStorage(ms, filePath, false)
+		s, err := NewStorage(ms, filePath, false)
+		require.NoError(t, err)
 		s.CounterInc("counter1", 1)
 		s.GaugeSet("gauge1", 2.2)
 		s.Save()
@@ -35,7 +36,8 @@ func Test_Storage_SaveLoad(t *testing.T) {
 	t.Run("save sync", func(t *testing.T) {
 		ms := memory.NewStorage()
 
-		s := NewStorage(ms, filePath, true)
+		s, err := NewStorage(ms, filePath, true)
+		require.NoError(t, err)
 		s.CounterInc("counter1", 3)
 		s.GaugeSet("gauge1", 4.4)
 
@@ -57,12 +59,14 @@ func Test_Storage_SaveLoad(t *testing.T) {
 		ms.CounterInc("counter3", 3)
 		ms.GaugeSet("gauge4", 4.4)
 
-		s := NewStorage(ms, filePath, false)
-		err := s.Save()
+		s, err := NewStorage(ms, filePath, false)
+		require.NoError(t, err)
+		err = s.Save()
 		require.NoError(t, err)
 
 		ms2 := memory.NewStorage()
-		s2 := NewStorage(ms2, filePath, false)
+		s2, err := NewStorage(ms2, filePath, false)
+		require.NoError(t, err)
 		err = s2.Load()
 		require.NoError(t, err)
 

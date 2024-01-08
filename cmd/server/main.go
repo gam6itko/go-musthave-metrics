@@ -29,7 +29,7 @@ func main() {
 	flag.Parse()
 
 	if err := file.FromEnv(fsConfig); err != nil {
-		panic(err)
+		Log.Fatal(err.Error())
 	}
 
 	if bindAddr == "" {
@@ -75,15 +75,18 @@ func newRouter() chi.Router {
 
 func newFileStorage(fsConfig *file.Config) *file.Storage {
 	sync := fsConfig.StoreInterval == 0
-	fs := file.NewStorage(
+	fs, err := file.NewStorage(
 		memory.NewStorage(),
 		fsConfig.FileStoragePath,
 		sync,
 	)
+	if err != nil {
+		Log.Fatal(err.Error())
+	}
 
 	if fsConfig.Restore {
 		if err := fs.Load(); err != nil {
-			panic(err)
+			Log.Fatal(err.Error())
 		}
 	}
 

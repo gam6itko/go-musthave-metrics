@@ -13,20 +13,20 @@ type Storage struct {
 	file  *os.File
 }
 
-func NewStorage(inner *memory.Storage, filepath string, sync bool) *Storage {
+func NewStorage(inner *memory.Storage, filepath string, sync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if sync {
 		flag |= os.O_SYNC
 	}
 	file, err := os.OpenFile(filepath, flag, 0774)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &Storage{
 		inner,
 		file,
-	}
+	}, nil
 }
 
 //<editor-fold desc="IMetricStorage decorator">
