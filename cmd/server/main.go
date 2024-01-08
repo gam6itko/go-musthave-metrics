@@ -21,12 +21,20 @@ func main() {
 		bindAddr = envVal
 	}
 
-	flag.StringVar(&bindAddr, "a", "localhost:8080", "Net address host:port")
+	bindAddrTmp := flag.String("a", "", "Net address host:port")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
 	if err := file.FromEnv(fsConfig); err != nil {
 		panic(err)
+	}
+
+	if bindAddr == "" {
+		if *bindAddrTmp != "" {
+			bindAddr = *bindAddrTmp
+		} else {
+			bindAddr = "localhost:8080"
+		}
 	}
 
 	// Сохраняем метрики по интервалу
