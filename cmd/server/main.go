@@ -68,8 +68,7 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 	)
 
 	if fsConfig.Restore {
-		err := fs.Load()
-		if err != nil {
+		if err := fs.Load(); err != nil {
 			panic(err)
 		}
 	}
