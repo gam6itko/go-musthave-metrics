@@ -32,7 +32,9 @@ func testRequest(
 
 func TestPostUpdate(t *testing.T) {
 	//todo-refactor Не уверен что хорошая практика инициализировать глобальную переменную в тестах
-	MetricStorage = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	var err error
+	MetricStorage, err = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	require.NoError(t, err)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()
@@ -81,7 +83,9 @@ func TestPostUpdate(t *testing.T) {
 }
 
 func TestGetValue(t *testing.T) {
-	MetricStorage = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	var err error
+	MetricStorage, err = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	require.NoError(t, err)
 
 	// preset
 	MetricStorage.CounterInc("fooCounter", 1)
