@@ -78,11 +78,12 @@ func TestPostUpdate(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	// preset
-	memory.CounterInc("fooCounter", 1)
-	memory.CounterInc("bar_c", 2)
+	storage := memory.NewStorage()
+	storage.CounterInc("fooCounter", 1)
+	storage.CounterInc("bar_c", 2)
 
-	memory.GaugeSet("foo_g", 1.1)
-	memory.GaugeSet("bar_g", 2.2)
+	storage.GaugeSet("foo_g", 1.1)
+	storage.GaugeSet("bar_g", 2.2)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()

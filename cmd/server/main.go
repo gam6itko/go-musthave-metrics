@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
@@ -12,7 +11,7 @@ import (
 	"time"
 )
 
-var MetricStorage storage.IMetricStorage
+var MetricStorage *file.Storage
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
@@ -36,7 +35,11 @@ func main() {
 	Log.Info("Starting server", zap.String("addr", bindAddr))
 	if err := http.ListenAndServe(bindAddr, newRouter()); err != nil {
 		// записываем в лог ошибку, если сервер не запустился
-		Log.Fatal(err.Error(), zap.String("event", "start server"))
+		Log.Error(err.Error(), zap.String("event", "start server"))
+	}
+
+	if err := MetricStorage.Save(); err != nil {
+		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
 }
 
@@ -56,7 +59,7 @@ func newRouter() chi.Router {
 	return r
 }
 
-func newFileStorage(fsConfig *file.Config) storage.IMetricStorage {
+func newFileStorage(fsConfig *file.Config) *file.Storage {
 	sync := fsConfig.StoreInterval == 0
 	fs := file.NewStorage(
 		memory.NewStorage(),
@@ -81,5 +84,5 @@ func newFileStorage(fsConfig *file.Config) storage.IMetricStorage {
 		}()
 	}
 
-	return *fs
+	return fs
 }
