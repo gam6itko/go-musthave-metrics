@@ -2,7 +2,6 @@ package file
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
@@ -77,7 +76,7 @@ func (ths Storage) Save() error {
 
 func (ths Storage) Load() error {
 	if _, err := ths.file.Seek(0, io.SeekStart); err != nil {
-		return errors.New(fmt.Sprintf("file seek error: %s", err))
+		return fmt.Errorf("file seek error: %s", err)
 	}
 
 	fi, err := ths.file.Stat()
