@@ -1,36 +1,36 @@
 package memory
 
 type Storage struct {
-	gauge   map[string]float64
-	counter map[string]int64
+	Gauge   map[string]float64
+	Counter map[string]int64
 }
 
-func NewStorage() Storage {
-	return Storage{
+func NewStorage() *Storage {
+	return &Storage{
 		make(map[string]float64),
 		make(map[string]int64),
 	}
 }
 
 func (ths Storage) GaugeSet(name string, val float64) {
-	ths.gauge[name] = val
+	ths.Gauge[name] = val
 }
 
 func (ths Storage) GaugeGet(name string) (float64, bool) {
-	val, ok := ths.gauge[name]
+	val, ok := ths.Gauge[name]
 	return val, ok
 }
 
 func (ths Storage) GaugeAll() map[string]float64 {
-	return ths.gauge
+	return ths.Gauge
 }
 
 func (ths Storage) CounterInc(name string, val int64) {
-	ths.counter[name] += val
+	ths.Counter[name] += val
 }
 
 func (ths Storage) CounterGet(name string) (int64, bool) {
-	if val, exists := ths.counter[name]; exists {
+	if val, exists := ths.Counter[name]; exists {
 		return val, true
 	}
 
@@ -38,5 +38,5 @@ func (ths Storage) CounterGet(name string) (int64, bool) {
 }
 
 func (ths Storage) CounterAll() map[string]int64 {
-	return ths.counter
+	return ths.Counter
 }
