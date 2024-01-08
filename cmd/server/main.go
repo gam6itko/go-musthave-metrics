@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
@@ -8,6 +9,8 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -40,14 +43,17 @@ func main() {
 	// Сохраняем метрики по интервалу
 	MetricStorage = newFileStorage(fsConfig)
 
-	Log.Info("Starting server", zap.String("addr", bindAddr))
-	if err := http.ListenAndServe(bindAddr, newRouter()); err != nil {
-		// записываем в лог ошибку, если сервер не запустился
-		Log.Error(err.Error(), zap.String("event", "start server"))
+	server := &http.Server{
+		Addr:    bindAddr,
+		Handler: newRouter(),
 	}
 
-	if err := MetricStorage.Save(); err != nil {
-		Log.Error(err.Error(), zap.String("event", "metrics save"))
+	go catchSignal(server)
+
+	Log.Info("Starting server", zap.String("addr", bindAddr))
+	if err := server.ListenAndServe(); err != nil {
+		// записываем в лог ошибку, если сервер не запустился
+		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
 }
 
@@ -92,4 +98,24 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 	}
 
 	return fs
+}
+
+func catchSignal(server *http.Server) {
+	terminateSignals := make(chan os.Signal, 1)
+
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
+
+	for { //We are looping here because config reload can happen multiple times.
+		select {
+		case s := <-terminateSignals:
+			Log.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :", zap.String("signal", s.String()))
+			if err := MetricStorage.Save(); err != nil {
+				Log.Error(err.Error(), zap.String("event", "metrics save"))
+			}
+			err := server.Shutdown(context.Background())
+			Log.Info("Error from shutdown", zap.String("error", err.Error()))
+			break
+		}
+
+	}
 }
