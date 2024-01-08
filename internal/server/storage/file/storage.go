@@ -17,7 +17,7 @@ func NewStorage(inner storage.IMetricStorage, filepath string, sync bool) *Stora
 	if sync {
 		flag |= os.O_SYNC
 	}
-	file, err := os.OpenFile(filepath, flag, 0777)
+	file, err := os.OpenFile(filepath, flag, 0774)
 	if err != nil {
 		panic(err)
 	}
@@ -74,6 +74,11 @@ func (ths Storage) Load() error {
 	b := make([]byte, 0, 500)
 	if _, err := ths.file.Read(b); err != nil {
 		return err
+	}
+
+	// файл пустой, мы ничего из него не вычитаем
+	if len(b) == 0 {
+		return nil
 	}
 
 	if err := json.Unmarshal(b, &ths.inner); err != nil {
