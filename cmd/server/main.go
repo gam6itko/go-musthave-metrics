@@ -17,7 +17,7 @@ func main() {
 	var fsConfig = &file.Config{} //create from flags
 	var bindAddr string
 
-	if envVal := os.Getenv("ADDRESS"); envVal != "" {
+	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
 
