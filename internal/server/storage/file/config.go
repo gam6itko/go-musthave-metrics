@@ -26,7 +26,7 @@ func FromEnv(c *Config) error {
 	if envVal, exists := os.LookupEnv("STORE_INTERVAL"); exists {
 		storeInterval, err := strconv.Atoi(envVal)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if storeInterval < 0 {
 			return errors.New("STORE_INTERVAL must be greater or equal 0")
@@ -34,12 +34,12 @@ func FromEnv(c *Config) error {
 		c.StoreInterval = uint64(storeInterval)
 	}
 
-	if filePath, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
-		if filePath == "" {
-			return errors.New("FILE_STORAGE_PATH must must not be empty")
-		}
-		c.FileStoragePath = filePath
-	}
+	//if filePath, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
+	//	if filePath == "" {
+	//		return errors.New("FILE_STORAGE_PATH must not be empty")
+	//	}
+	//	c.FileStoragePath = filePath
+	//}
 
 	if envVal, exists := os.LookupEnv("RESTORE"); exists {
 		restore, err := strconv.ParseBool(envVal)
