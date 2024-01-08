@@ -3,6 +3,7 @@ package file
 import (
 	"encoding/json"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
+	"io"
 	"os"
 )
 
@@ -73,17 +74,12 @@ func (ths Storage) Save() error {
 }
 
 func (ths Storage) Load() error {
-	b := make([]byte, 0, 500)
-	if _, err := ths.file.Read(b); err != nil {
+	if _, err := ths.file.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 
-	// файл пустой, мы ничего из него не вычитаем
-	if len(b) == 0 {
-		return nil
-	}
-
-	if err := json.Unmarshal(b, &ths.inner); err != nil {
+	decoder := json.NewDecoder(ths.file)
+	if err := decoder.Decode(&ths.inner); err != nil {
 		return err
 	}
 

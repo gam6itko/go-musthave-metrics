@@ -107,9 +107,12 @@ func catchSignal(server *http.Server) {
 
 	s := <-terminateSignals
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
+	// metrics save
 	if err := MetricStorage.Save(); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
+	MetricStorage.Close()
+
 	err := server.Shutdown(context.Background())
 	Log.Info("Error from shutdown", zap.String("error", err.Error()))
 }
