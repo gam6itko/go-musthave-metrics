@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -34,12 +35,13 @@ func FromEnv(c *Config) error {
 		c.StoreInterval = uint64(storeInterval)
 	}
 
-	//if filePath, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
-	//	if filePath == "" {
-	//		return errors.New("FILE_STORAGE_PATH must not be empty")
-	//	}
-	//	c.FileStoragePath = filePath
-	//}
+	if filePath, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
+		filePath = strings.Trim(filePath, " \n\t")
+		if filePath == "" {
+			return errors.New("FILE_STORAGE_PATH must not be empty")
+		}
+		c.FileStoragePath = filePath
+	}
 
 	if envVal, exists := os.LookupEnv("RESTORE"); exists {
 		restore, err := strconv.ParseBool(envVal)

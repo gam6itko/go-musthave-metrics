@@ -2,6 +2,8 @@ package file
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
 	"os"
@@ -13,9 +15,9 @@ type Storage struct {
 	file  *os.File
 }
 
-func NewStorage(inner *memory.Storage, filepath string, sync bool) (*Storage, error) {
+func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
-	if sync {
+	if ioSync {
 		flag |= os.O_SYNC
 	}
 	file, err := os.OpenFile(filepath, flag, 0774)
@@ -75,12 +77,19 @@ func (ths Storage) Save() error {
 
 func (ths Storage) Load() error {
 	if _, err := ths.file.Seek(0, io.SeekStart); err != nil {
+		return errors.New(fmt.Sprintf("file seek error: %s", err))
+	}
+
+	fi, err := ths.file.Stat()
+	if err != nil {
 		return err
 	}
 
-	decoder := json.NewDecoder(ths.file)
-	if err := decoder.Decode(&ths.inner); err != nil {
-		return err
+	if fi.Size() > 0 {
+		decoder := json.NewDecoder(ths.file)
+		if err := decoder.Decode(&ths.inner); err != nil {
+			return err
+		}
 	}
 
 	return nil
