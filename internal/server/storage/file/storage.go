@@ -32,6 +32,7 @@ func NewStorage(inner storage.IMetricStorage, filepath string, sync bool) *Stora
 
 func (ths Storage) GaugeSet(name string, val float64) {
 	ths.inner.GaugeSet(name, val)
+	ths.Save()
 }
 
 func (ths Storage) GaugeGet(name string) (float64, bool) {
@@ -44,6 +45,7 @@ func (ths Storage) GaugeAll() map[string]float64 {
 
 func (ths Storage) CounterInc(name string, val int64) {
 	ths.inner.CounterInc(name, val)
+	ths.Save()
 }
 
 func (ths Storage) CounterGet(name string) (int64, bool) {

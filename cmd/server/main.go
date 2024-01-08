@@ -106,7 +106,7 @@ func catchSignal(server *http.Server) {
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
 
 	s := <-terminateSignals
-	Log.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :", zap.String("signal", s.String()))
+	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
 	if err := MetricStorage.Save(); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
