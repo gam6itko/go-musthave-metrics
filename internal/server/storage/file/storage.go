@@ -6,7 +6,6 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
 	"os"
-	"syscall"
 )
 
 // Storage decorator on memory.Storage
@@ -18,7 +17,7 @@ type Storage struct {
 func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if ioSync {
-		flag |= os.O_SYNC | syscall.O_DIRECT
+		flag |= os.O_SYNC
 	}
 	file, err := os.OpenFile(filepath, flag, 0774)
 	if err != nil {
