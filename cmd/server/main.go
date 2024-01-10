@@ -1,116 +1,121 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
-	"io"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
-func main() {
-	bindAddr := "localhost:8080"
+var MetricStorage *file.Storage
 
-	if envVal := os.Getenv("ADDRESS"); envVal != "" {
+func main() {
+	var fsConfig = &file.Config{} //create from flags
+	var bindAddr string
+
+	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
 
-	fBindAddrRef := flag.String("a", "", "Net address host:port")
+	bindAddrTmp := flag.String("a", "", "Net address host:port")
+	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
-	if *fBindAddrRef != "" {
-		bindAddr = *fBindAddrRef
+	if err := file.FromEnv(fsConfig); err != nil {
+		Log.Fatal(err.Error())
 	}
 
-	fmt.Printf("Server start. Listen on %s", bindAddr)
-	err := http.ListenAndServe(bindAddr, newRouter())
-	log.Printf("ListenAndServe returns: %s", err)
+	if bindAddr == "" {
+		if *bindAddrTmp != "" {
+			bindAddr = *bindAddrTmp
+		} else {
+			bindAddr = "localhost:8080"
+		}
+	}
+
+	// Сохраняем метрики по интервалу
+	MetricStorage = newFileStorage(fsConfig)
+
+	server := &http.Server{
+		Addr:    bindAddr,
+		Handler: newRouter(),
+	}
+
+	go catchSignal(server)
+
+	Log.Info("Starting server", zap.String("addr", bindAddr))
+	if err := server.ListenAndServe(); err != nil {
+		// записываем в лог ошибку, если сервер не запустился
+		Log.Info(err.Error(), zap.String("event", "start server"))
+	}
 }
 
 func newRouter() chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/", getAllMetrics)
+	r.Use(requestLoggingMiddleware)
+	r.Use(compressMiddleware)
+
+	r.Get("/", getAllMetricsHandler)
 	r.Get("/value/{type}/{name}", getValueHandler)
 	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
+	// json
+	r.Post("/value/", postValueJSONHandler)
+	r.Post("/update/", postUpdateJSONHandler)
 
 	return r
 }
 
-func getAllMetrics(resp http.ResponseWriter, req *http.Request) {
-	for name, val := range memory.CounterAll() {
-		io.WriteString(resp, fmt.Sprintf("%s: %d\n", name, val))
+func newFileStorage(fsConfig *file.Config) *file.Storage {
+	sync := fsConfig.StoreInterval == 0
+	fs, err := file.NewStorage(
+		memory.NewStorage(),
+		fsConfig.FileStoragePath,
+		sync,
+	)
+	if err != nil {
+		Log.Fatal(err.Error())
 	}
-	for name, val := range memory.GaugeAll() {
-		io.WriteString(resp, fmt.Sprintf("%s: %f\n", name, val))
+
+	if fsConfig.Restore {
+		if err := fs.Load(); err != nil {
+			Log.Fatal(err.Error())
+		}
 	}
+
+	if !sync {
+		// Сохраняем каждые N секунд, если нет флага SYNC
+		go func() {
+			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
+			for range ticker.C {
+				fs.Save() // грязновато, по идее нужно делать какой-то bridge-saver
+			}
+		}()
+	}
+
+	return fs
 }
 
-func getValueHandler(resp http.ResponseWriter, req *http.Request) {
-	//fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
+func catchSignal(server *http.Server) {
+	terminateSignals := make(chan os.Signal, 1)
 
-	name := chi.URLParam(req, "name")
-	if name == "" {
-		http.Error(resp, "Bad name", http.StatusNotFound)
-		return
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
+
+	s := <-terminateSignals
+	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
+	// metrics save
+	if err := MetricStorage.Save(); err != nil {
+		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
+	MetricStorage.Close()
 
-	switch chi.URLParam(req, "type") {
-	case "counter":
-		val, exists := memory.CounterGet(name)
-		if !exists {
-			http.Error(resp, "Not found", http.StatusNotFound)
-			return
-		}
-		io.WriteString(resp, fmt.Sprintf("%d", val))
-
-	case "gauge":
-		val, exists := memory.GaugeGet(name)
-		if !exists {
-			http.Error(resp, "Not found", http.StatusNotFound)
-			return
-		}
-		io.WriteString(resp, fmt.Sprintf("%g", val))
-
-	default:
-		http.Error(resp, "invalid metric type", http.StatusNotFound)
-		return
-	}
-}
-
-func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
-	//fmt.Printf("requst: [%s] %s\n", req.Method, req.URL)
-
-	name := chi.URLParam(req, "name")
-	value := chi.URLParam(req, "value")
-
-	switch strings.ToLower(chi.URLParam(req, "type")) {
-	case "counter":
-		v, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			http.Error(resp, "invalid counter value", http.StatusBadRequest)
-			return
-		}
-		memory.CounterInc(name, v)
-
-	case "gauge":
-		v, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			http.Error(resp, "invalid gauge value", http.StatusBadRequest)
-			return
-		}
-		memory.GaugeSet(name, v)
-
-	default:
-		http.Error(resp, "invalid metric type", http.StatusBadRequest)
-		return
-	}
-
-	resp.WriteHeader(http.StatusOK)
-	io.WriteString(resp, "OK")
+	err := server.Shutdown(context.Background())
+	Log.Info("Error from shutdown", zap.String("error", err.Error()))
 }

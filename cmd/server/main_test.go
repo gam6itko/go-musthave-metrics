@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,11 @@ func testRequest(
 }
 
 func TestPostUpdate(t *testing.T) {
+	//todo-refactor Не уверен что хорошая практика инициализировать глобальную переменную в тестах
+	var err error
+	MetricStorage, err = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	require.NoError(t, err)
+
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()
 
@@ -77,12 +83,16 @@ func TestPostUpdate(t *testing.T) {
 }
 
 func TestGetValue(t *testing.T) {
-	// preset
-	memory.CounterInc("fooCounter", 1)
-	memory.CounterInc("bar_c", 2)
+	var err error
+	MetricStorage, err = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	require.NoError(t, err)
 
-	memory.GaugeSet("foo_g", 1.1)
-	memory.GaugeSet("bar_g", 2.2)
+	// preset
+	MetricStorage.CounterInc("fooCounter", 1)
+	MetricStorage.CounterInc("bar_c", 2)
+
+	MetricStorage.GaugeSet("foo_g", 1.1)
+	MetricStorage.GaugeSet("bar_g", 2.2)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()
