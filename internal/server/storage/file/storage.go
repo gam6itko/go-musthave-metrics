@@ -6,6 +6,7 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
 	"os"
+	"syscall"
 )
 
 // Storage decorator on memory.Storage
@@ -17,7 +18,7 @@ type Storage struct {
 func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if ioSync {
-		flag |= os.O_SYNC
+		flag |= os.O_SYNC | syscall.O_DIRECT
 	}
 	file, err := os.OpenFile(filepath, flag, 0774)
 	if err != nil {
@@ -29,8 +30,6 @@ func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, 
 		file,
 	}, nil
 }
-
-//<editor-fold desc="IMetricStorage decorator">
 
 func (ths Storage) GaugeSet(name string, val float64) {
 	ths.inner.GaugeSet(name, val)
@@ -57,8 +56,6 @@ func (ths Storage) CounterGet(name string) (int64, bool) {
 func (ths Storage) CounterAll() map[string]int64 {
 	return ths.inner.CounterAll()
 }
-
-//</editor-fold>
 
 func (ths Storage) Save() error {
 	b, err := json.Marshal(ths.inner)

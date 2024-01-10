@@ -43,9 +43,7 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 	contentType := c.w.Header().Get("Content-Type")
 	canCompress := slices.Contains(compressEnabledForTypeList, contentType)
 	if canCompress {
-		if c.w.Header().Get("Content-Encoding") == "" {
-			c.w.Header().Set("Content-Encoding", "gzip")
-		}
+		c.w.Header().Set("Content-Encoding", "gzip")
 		return c.zw.Write(p)
 	}
 	return c.w.Write(p)
