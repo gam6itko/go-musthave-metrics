@@ -163,6 +163,16 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func getPingHandler(resp http.ResponseWriter, req *http.Request) {
+	err := Database.Ping()
+	if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	resp.WriteHeader(http.StatusOK)
+}
+
 func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
 	if contentType := req.Header.Get("Content-Type"); contentType != "application/json" {
 		return nil, errors.New("invalid Content-Type header")

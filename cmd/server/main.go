@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
@@ -15,16 +16,24 @@ import (
 )
 
 var MetricStorage *file.Storage
+var Database *sql.DB
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
 	var bindAddr string
+	var dbDsn string
 
 	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
 
+	//init db
+	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
+		dbDsn = envVal
+	}
+
 	bindAddrTmp := flag.String("a", "", "Net address host:port")
+	dbDsnTmp := flag.String("d", "", "Database DSN")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
@@ -55,6 +64,17 @@ func main() {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
+
+	// databse open
+	if *dbDsnTmp != "" {
+		dbDsn = *dbDsnTmp
+	}
+
+	tmpDb, err := sql.Open("pgx", dbDsn)
+	if err != nil {
+		panic(err)
+	}
+	Database = tmpDb
 }
 
 func newRouter() chi.Router {
@@ -69,6 +89,8 @@ func newRouter() chi.Router {
 	// json
 	r.Post("/value/", postValueJSONHandler)
 	r.Post("/update/", postUpdateJSONHandler)
+	// database
+	r.Get("/ping", getPingHandler)
 
 	return r
 }
