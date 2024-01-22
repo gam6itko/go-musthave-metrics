@@ -7,6 +7,7 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -57,6 +58,17 @@ func main() {
 		Handler: newRouter(),
 	}
 
+	// database open
+	if *dbDsnTmp != "" {
+		dbDsn = *dbDsnTmp
+	}
+
+	tmpDB, err := sql.Open("pgx", dbDsn)
+	if err != nil {
+		panic(err)
+	}
+	Database = tmpDB
+
 	go catchSignal(server)
 
 	Log.Info("Starting server", zap.String("addr", bindAddr))
@@ -64,17 +76,6 @@ func main() {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
-
-	// databse open
-	if *dbDsnTmp != "" {
-		dbDsn = *dbDsnTmp
-	}
-
-	tmpDb, err := sql.Open("pgx", dbDsn)
-	if err != nil {
-		panic(err)
-	}
-	Database = tmpDb
 }
 
 func newRouter() chi.Router {
