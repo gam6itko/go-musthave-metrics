@@ -63,7 +63,7 @@ Content-Type: application/json
   {
     "id": "GaugeABC",
     "type": "gauge",
-    "delta": 19.17
-  },
+    "value": 19.17
+  }
 ]
 ```

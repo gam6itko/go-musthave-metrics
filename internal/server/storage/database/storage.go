@@ -66,7 +66,7 @@ func (ths Storage) CounterAll() map[string]int64 {
 }
 
 func (ths Storage) gaugeSet(name string, val float64) error {
-	query := `INSERT INTO "counter" ("name", "value") 
+	query := `INSERT INTO "gauge" ("name", "value") 
 		VALUES ($1, $2) 
 		ON CONFLICT ("name") DO UPDATE SET value = EXCLUDED.value`
 	_, err := ths.db.Exec(query, name, val)
@@ -80,7 +80,7 @@ func (ths Storage) gaugeGet(name string) (float64, error) {
 	}
 
 	var result float64
-	if err := row.Scan(result); err != nil {
+	if err := row.Scan(&result); err != nil {
 		return 0, err
 	}
 
@@ -129,7 +129,7 @@ func (ths Storage) counterGet(name string) (int64, error) {
 	}
 
 	var result int64
-	if err := row.Scan(result); err != nil {
+	if err := row.Scan(&result); err != nil {
 		return 0, err
 	}
 
