@@ -166,7 +166,9 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getPingHandler(resp http.ResponseWriter, req *http.Request) {
-	ctx, _ := context.WithTimeout(req.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
+	defer cancel()
+
 	err := Database.PingContext(ctx)
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
