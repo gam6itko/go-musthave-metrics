@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-//todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
+// todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.Storage
 var Database *sql.DB
 
@@ -53,18 +53,6 @@ func main() {
 		}
 	}
 
-	// Сохраняем метрики по интервалу
-	fileStorage := newFileStorage(fsConfig)
-	MetricStorage = database.NewStorage(
-		fileStorage,
-		Database,
-	)
-
-	server := &http.Server{
-		Addr:    bindAddr,
-		Handler: newRouter(),
-	}
-
 	// database open
 	if *dbDsnTmp != "" {
 		dbDsn = *dbDsnTmp
@@ -76,6 +64,17 @@ func main() {
 	}
 	Database = tmpDB
 	database.InitSchema(Database)
+
+	fileStorage := newFileStorage(fsConfig)
+	MetricStorage = database.NewStorage(
+		fileStorage,
+		Database,
+	)
+
+	server := &http.Server{
+		Addr:    bindAddr,
+		Handler: newRouter(),
+	}
 
 	go catchSignal(server)
 
