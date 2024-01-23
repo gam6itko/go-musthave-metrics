@@ -117,7 +117,7 @@ func (ths Storage) gaugeAll() (map[string]float64, error) {
 func (ths Storage) counterInc(name string, val int64) error {
 	query := `INSERT INTO "counter" ("name", "value")
 		VALUES ($1, $2)
-		ON CONFLICT ("name") DO UPDATE SET "value" = "value" + EXCLUDED.value`
+		ON CONFLICT ("name") DO UPDATE SET "value" = "counter"."value" + EXCLUDED.value`
 	_, err := ths.db.Exec(query, name, val)
 	return err
 }
