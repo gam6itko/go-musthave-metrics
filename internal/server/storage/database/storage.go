@@ -42,12 +42,12 @@ func (ths Storage) GaugeAll() map[string]float64 {
 	return ths.inner.GaugeAll()
 }
 
-func (ths Storage) CounterInc(name string, val int64) {
+func (ths Storage) CounterSet(name string, val int64) {
 	err := ths.counterSet(name, val)
 	if err == nil {
 		return
 	}
-	ths.inner.CounterInc(name, val)
+	ths.inner.CounterSet(name, val)
 }
 
 func (ths Storage) CounterGet(name string) (int64, bool) {

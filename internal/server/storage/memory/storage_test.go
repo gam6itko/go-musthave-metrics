@@ -19,7 +19,7 @@ func TestCounterSetGet(t *testing.T) {
 	s := NewStorage()
 
 	metricName := "bar"
-	s.CounterInc(metricName, 1)
+	s.CounterSet(metricName, 1)
 	val, exists := s.CounterGet(metricName)
 	assert.True(t, exists)
 	assert.Equal(t, int64(1), val)

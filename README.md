@@ -47,3 +47,23 @@ Content-Type: application/json
   "type": "counter", 
 }
 ```
+
+### iter12
+
+```http request
+POST localhost:8080/updates/
+Content-Type: application/json
+
+[
+  {
+    "id": "PollCount",
+    "type": "counter",
+    "delta": 1
+  },
+  {
+    "id": "GaugeABC",
+    "type": "gauge",
+    "delta": 19.17
+  },
+]
+```

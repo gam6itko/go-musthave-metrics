@@ -103,6 +103,7 @@ func newRouter() chi.Router {
 	// json
 	r.Post("/value/", postValueJSONHandler)
 	r.Post("/update/", postUpdateJSONHandler)
+	r.Post("/updates/", postUpdateBatchJSONHandler)
 	// database
 	r.Get("/ping", getPingHandler)
 

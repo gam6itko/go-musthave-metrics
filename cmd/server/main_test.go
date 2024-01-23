@@ -88,8 +88,8 @@ func TestGetValue(t *testing.T) {
 	require.NoError(t, err)
 
 	// preset
-	MetricStorage.CounterInc("fooCounter", 1)
-	MetricStorage.CounterInc("bar_c", 2)
+	MetricStorage.CounterSet("fooCounter", 1)
+	MetricStorage.CounterSet("bar_c", 2)
 
 	MetricStorage.GaugeSet("foo_g", 1.1)
 	MetricStorage.GaugeSet("bar_g", 2.2)

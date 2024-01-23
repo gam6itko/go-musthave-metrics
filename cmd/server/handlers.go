@@ -70,7 +70,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		MetricStorage.CounterInc(name, v)
+		MetricStorage.CounterSet(name, v)
 
 	case "gauge":
 		v, err := strconv.ParseFloat(value, 64)
@@ -136,20 +136,39 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	switch strings.ToLower(metric.MType) {
-	case "counter":
-		if *metric.Delta < 0 {
-			httpErrorJSON(resp, "counter delta must be positive", http.StatusBadRequest)
+	if err := persistMetric(metric); err != nil {
+		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp.WriteHeader(http.StatusOK)
+	_, err = resp.Write(b)
+	if err != nil {
+		Log.Error(err.Error())
+	}
+}
+
+func postUpdateBatchJSONHandler(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Content-Type", "application/json")
+
+	metricList, err := decodeMetricsBatchRequest(req)
+	if err != nil {
+		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+		Log.Warn(err.Error())
+		return
+	}
+
+	for _, m := range metricList {
+		if err := persistMetric(&m); err != nil {
+			httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
 			return
 		}
-		MetricStorage.CounterInc(metric.ID, *metric.Delta)
-
-	case "gauge":
-		MetricStorage.GaugeSet(metric.ID, *metric.Value)
-
-	default:
-		httpErrorJSON(resp, "invalid metric type", http.StatusBadRequest)
-		return
 	}
 
 	b, err := json.Marshal(resp)
@@ -199,8 +218,42 @@ func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
 	return metric, nil
 }
 
+func decodeMetricsBatchRequest(req *http.Request) ([]Metrics, error) {
+	if contentType := req.Header.Get("Content-Type"); contentType != "application/json" {
+		return nil, errors.New("invalid Content-Type header")
+	}
+
+	metricList := make([]Metrics, 0, 100)
+	decoder := json.NewDecoder(req.Body)
+	if err := decoder.Decode(&metricList); err != nil {
+		return nil, errors.New("failed to decode request body")
+	}
+	defer req.Body.Close()
+
+	return metricList, nil
+}
+
 func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	fmt.Fprintf(w, `{"error":"%s"}`, message)
+}
+
+// persistMetric Сохраняем метрику в хранилище.
+func persistMetric(m *Metrics) error {
+	switch strings.ToLower(m.MType) {
+	case "counter":
+		if *m.Delta < 0 {
+			return errors.New("counter delta must be positive")
+		}
+		MetricStorage.CounterSet(m.ID, *m.Delta)
+
+	case "gauge":
+		MetricStorage.GaugeSet(m.ID, *m.Value)
+
+	default:
+		return errors.New("invalid m type")
+	}
+
+	return nil
 }

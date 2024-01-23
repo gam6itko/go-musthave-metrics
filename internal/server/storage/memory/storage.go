@@ -25,7 +25,7 @@ func (ths Storage) GaugeAll() map[string]float64 {
 	return ths.Gauge
 }
 
-func (ths Storage) CounterInc(name string, val int64) {
+func (ths Storage) CounterSet(name string, val int64) {
 	ths.Counter[name] += val
 }
 
