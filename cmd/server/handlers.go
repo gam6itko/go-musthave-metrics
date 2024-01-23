@@ -136,7 +136,7 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch strings.ToLower(metric.MType) {
 	case "counter":
-		if *metric.Delta <= 0 {
+		if *metric.Delta < 0 {
 			httpErrorJSON(resp, "counter delta must be positive", http.StatusBadRequest)
 			return
 		}
