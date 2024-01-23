@@ -104,6 +104,10 @@ func (ths Storage) gaugeAll() (map[string]float64, error) {
 		result[name] = val
 	}
 
+	if rows.Err() != nil {
+		return result, rows.Err()
+	}
+
 	return result, nil
 }
 
@@ -144,6 +148,10 @@ func (ths Storage) counterAll() (map[string]int64, error) {
 		}
 
 		result[name] = val
+	}
+
+	if rows.Err() != nil {
+		return result, rows.Err()
 	}
 
 	return result, nil
