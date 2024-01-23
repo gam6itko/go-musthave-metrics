@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
@@ -16,7 +18,8 @@ import (
 	"time"
 )
 
-var MetricStorage *file.Storage
+//todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
+var MetricStorage storage.Storage
 var Database *sql.DB
 
 func main() {
@@ -51,7 +54,11 @@ func main() {
 	}
 
 	// Сохраняем метрики по интервалу
-	MetricStorage = newFileStorage(fsConfig)
+	fileStorage := newFileStorage(fsConfig)
+	MetricStorage = database.NewStorage(
+		fileStorage,
+		Database,
+	)
 
 	server := &http.Server{
 		Addr:    bindAddr,
@@ -68,6 +75,7 @@ func main() {
 		panic(err)
 	}
 	Database = tmpDB
+	database.InitSchema(Database)
 
 	go catchSignal(server)
 
@@ -76,6 +84,12 @@ func main() {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
+
+	// on server.stop
+	if err := fileStorage.Save(); err != nil {
+		Log.Error(err.Error(), zap.String("event", "metrics save"))
+	}
+	fileStorage.Close()
 }
 
 func newRouter() chi.Router {
@@ -134,10 +148,6 @@ func catchSignal(server *http.Server) {
 	s := <-terminateSignals
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
 	// metrics save
-	if err := MetricStorage.Save(); err != nil {
-		Log.Error(err.Error(), zap.String("event", "metrics save"))
-	}
-	MetricStorage.Close()
 
 	err := server.Shutdown(context.Background())
 	Log.Info("Error from shutdown", zap.String("error", err.Error()))

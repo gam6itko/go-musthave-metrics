@@ -3,18 +3,18 @@ package file
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"io"
 	"os"
 )
 
 // Storage decorator on memory.Storage
 type Storage struct {
-	inner *memory.Storage
+	inner storage.Storage
 	file  *os.File
 }
 
-func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, error) {
+func NewStorage(inner storage.Storage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if ioSync {
 		flag |= os.O_SYNC

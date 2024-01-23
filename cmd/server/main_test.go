@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/stretchr/testify/assert"
@@ -35,13 +33,8 @@ func testRequest(
 func TestPostUpdate(t *testing.T) {
 	//todo-refactor Не уверен что хорошая практика инициализировать глобальную переменную в тестах
 	var err error
-	fileStorage, err := file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	MetricStorage, err = file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
 	require.NoError(t, err)
-
-	db, err := sql.Open("null", "null")
-	require.NoError(t, err)
-
-	MetricStorage = database.NewStorage(fileStorage, db)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()
@@ -91,14 +84,8 @@ func TestPostUpdate(t *testing.T) {
 
 func TestGetValue(t *testing.T) {
 	var err error
-
-	fs, err := file.NewStorage(memory.NewStorage(), "/tmp/tmp.json", false)
+	MetricStorage = memory.NewStorage()
 	require.NoError(t, err)
-
-	db, err := sql.Open("null", "null")
-	require.NoError(t, err)
-
-	MetricStorage = database.NewStorage(fs, db)
 
 	// preset
 	MetricStorage.CounterInc("fooCounter", 1)
