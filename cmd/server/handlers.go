@@ -165,11 +165,14 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 func getPingHandler(resp http.ResponseWriter, req *http.Request) {
 	err := Database.Ping()
+	resp.Header().Set("Content-Type", "text/html")
 	if err != nil {
+		resp.Write([]byte(err.Error()))
 		resp.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	resp.Write([]byte("OK"))
 	resp.WriteHeader(http.StatusOK)
 }
 
