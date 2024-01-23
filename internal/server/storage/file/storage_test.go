@@ -17,7 +17,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 
 		s, err := NewStorage(ms, filePath, false)
 		require.NoError(t, err)
-		s.CounterSet("counter1", 1)
+		s.CounterInc("counter1", 1)
 		s.GaugeSet("gauge1", 2.2)
 		s.Save()
 
@@ -38,7 +38,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 
 		s, err := NewStorage(ms, filePath, true)
 		require.NoError(t, err)
-		s.CounterSet("counter1", 3)
+		s.CounterInc("counter1", 3)
 		s.GaugeSet("gauge1", 4.4)
 
 		b, err := os.ReadFile(filePath)
@@ -56,7 +56,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 	filePath = fmt.Sprintf("/tmp/random-%d.json", rand.Int())
 	t.Run("multi load", func(t *testing.T) {
 		ms := memory.NewStorage()
-		ms.CounterSet("counter3", 3)
+		ms.CounterInc("counter3", 3)
 		ms.GaugeSet("gauge4", 4.4)
 
 		s, err := NewStorage(ms, filePath, false)
@@ -83,7 +83,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 		require.Equal(t, gVal1, gVal2)
 
 		// еще один load
-		ms2.CounterSet("counter3", 9999)
+		ms2.CounterInc("counter3", 9999)
 		ms2.GaugeSet("gauge4", 9999)
 		err = s2.Load()
 		require.NoError(t, err)
