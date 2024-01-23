@@ -10,7 +10,7 @@ ADDRESS=localhost:8080
 STORE_INTERVAL=300
 FILE_STORAGE_PATH=/tmp/metrics-db.json
 RESTORE=true
-DATABASE_DSN="host=postgres user=root password=password dbname=yp_metrics sslmode=disable"
+DATABASE_DSN="host=postgres user=postgres password=password dbname=yp_metrics sslmode=disable"
 ```
 
 ### get docker ip
