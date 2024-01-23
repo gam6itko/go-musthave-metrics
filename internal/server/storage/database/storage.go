@@ -43,7 +43,7 @@ func (ths Storage) GaugeAll() map[string]float64 {
 }
 
 func (ths Storage) CounterInc(name string, val int64) {
-	err := ths.counterInc(name, val)
+	err := ths.counterSet(name, val)
 	if err == nil {
 		return
 	}
@@ -66,12 +66,15 @@ func (ths Storage) CounterAll() map[string]int64 {
 }
 
 func (ths Storage) gaugeSet(name string, val float64) error {
-	_, err := ths.db.Exec("UPDATE `gauge` SET `value` = $1 WHERE `key` = $2", val, name)
+	query := `INSERT INTO "counter" ("name", "value") 
+		VALUES ($1, $2) 
+		ON CONFLICT ("name") DO UPDATE SET value = EXCLUDED.value`
+	_, err := ths.db.Exec(query, name, val)
 	return err
 }
 
 func (ths Storage) gaugeGet(name string) (float64, error) {
-	row := ths.db.QueryRow("SELECT `value` FROM `gauge` WHERE `key` = $1", name)
+	row := ths.db.QueryRow(`SELECT "value" FROM "gauge" WHERE "name" = $1`, name)
 	if row.Err() != nil {
 		return 0, row.Err()
 	}
@@ -87,7 +90,7 @@ func (ths Storage) gaugeGet(name string) (float64, error) {
 func (ths Storage) gaugeAll() (map[string]float64, error) {
 	result := make(map[string]float64)
 
-	rows, err := ths.db.Query("SELECT `key`, `value` FROM `gauge`")
+	rows, err := ths.db.Query(`SELECT "name", value FROM "gauge"`)
 	if err != nil {
 		return result, err
 	}
@@ -111,13 +114,16 @@ func (ths Storage) gaugeAll() (map[string]float64, error) {
 	return result, nil
 }
 
-func (ths Storage) counterInc(name string, val int64) error {
-	_, err := ths.db.Exec("UPDATE `counter` SET `value` = $1 WHERE `key` = $2", val, name)
+func (ths Storage) counterSet(name string, val int64) error {
+	query := `INSERT INTO "counter" ("name", "value")
+		VALUES ($1, $2)
+		ON CONFLICT ("name") DO UPDATE SET "value" = EXCLUDED.value`
+	_, err := ths.db.Exec(query, name, val)
 	return err
 }
 
 func (ths Storage) counterGet(name string) (int64, error) {
-	row := ths.db.QueryRow("SELECT `value` FROM `counter` WHERE `key` = $1", name)
+	row := ths.db.QueryRow(`SELECT "value" FROM "counter" WHERE "name" = $1`, name)
 	if row.Err() != nil {
 		return 0, row.Err()
 	}
@@ -133,7 +139,7 @@ func (ths Storage) counterGet(name string) (int64, error) {
 func (ths Storage) counterAll() (map[string]int64, error) {
 	result := make(map[string]int64)
 
-	rows, err := ths.db.Query("SELECT `key`, `value` FROM `counter`")
+	rows, err := ths.db.Query(`SELECT "name", "value" FROM "counter"`)
 	if err != nil {
 		return result, err
 	}

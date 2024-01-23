@@ -10,7 +10,18 @@ func InitSchema(db *sql.DB) error {
 	}
 
 	// server_init.sql
-	sql := "CREATE TABLE IF NOT EXISTS public.counter\n(\n    \"name\" varchar NOT NULL,\n    value  bigint  NOT NULL DEFAULT 0,\n    CONSTRAINT counter_pk PRIMARY KEY (\"name\")\n);\n\nCREATE TABLE IF NOT EXISTS public.gauge\n(\n    \"key\" varchar          NOT NULL,\n    value double precision NULL,\n    CONSTRAINT gauge_pk PRIMARY KEY (\"key\")\n);\n"
-	_, err := db.Exec(sql)
+	sqlQuery := `CREATE TABLE IF NOT EXISTS public.counter
+		(    
+		    "name" varchar NOT NULL,    
+		    "value"  bigint  NOT NULL DEFAULT 0,    
+		    CONSTRAINT counter_pk PRIMARY KEY ("name")
+		);
+
+		CREATE TABLE IF NOT EXISTS public.gauge(    
+		    "name" varchar          NOT NULL,    
+		    "value" double precision NULL,    
+		    CONSTRAINT gauge_pk PRIMARY KEY ("name")
+		);`
+	_, err := db.Exec(sqlQuery)
 	return err
 }
