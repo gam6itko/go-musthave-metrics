@@ -42,12 +42,12 @@ func (ths Storage) GaugeAll() map[string]float64 {
 	return ths.inner.GaugeAll()
 }
 
-func (ths Storage) CounterSet(name string, val int64) {
-	err := ths.counterSet(name, val)
+func (ths Storage) CounterInc(name string, val int64) {
+	err := ths.counterInc(name, val)
 	if err == nil {
 		return
 	}
-	ths.inner.CounterSet(name, val)
+	ths.inner.CounterInc(name, val)
 }
 
 func (ths Storage) CounterGet(name string) (int64, bool) {
@@ -114,10 +114,10 @@ func (ths Storage) gaugeAll() (map[string]float64, error) {
 	return result, nil
 }
 
-func (ths Storage) counterSet(name string, val int64) error {
+func (ths Storage) counterInc(name string, val int64) error {
 	query := `INSERT INTO "counter" ("name", "value")
 		VALUES ($1, $2)
-		ON CONFLICT ("name") DO UPDATE SET "value" = EXCLUDED.value`
+		ON CONFLICT ("name") DO UPDATE SET "value" = "value" + EXCLUDED.value`
 	_, err := ths.db.Exec(query, name, val)
 	return err
 }

@@ -70,7 +70,7 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		MetricStorage.CounterSet(name, v)
+		MetricStorage.CounterInc(name, v)
 
 	case "gauge":
 		v, err := strconv.ParseFloat(value, 64)
@@ -246,7 +246,7 @@ func persistMetric(m *Metrics) error {
 		if *m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		MetricStorage.CounterSet(m.ID, *m.Delta)
+		MetricStorage.CounterInc(m.ID, *m.Delta)
 
 	case "gauge":
 		MetricStorage.GaugeSet(m.ID, *m.Value)

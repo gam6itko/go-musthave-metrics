@@ -43,8 +43,8 @@ func (ths Storage) GaugeAll() map[string]float64 {
 	return ths.inner.GaugeAll()
 }
 
-func (ths Storage) CounterSet(name string, val int64) {
-	ths.inner.CounterSet(name, val)
+func (ths Storage) CounterInc(name string, val int64) {
+	ths.inner.CounterInc(name, val)
 	ths.Save()
 }
 
