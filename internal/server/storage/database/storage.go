@@ -47,7 +47,7 @@ func (ths Storage) CounterInc(name string, val int64) {
 	if err == nil {
 		return
 	}
-	ths.inner.GaugeAll()
+	ths.inner.CounterInc(name, val)
 }
 
 func (ths Storage) CounterGet(name string) (int64, bool) {
