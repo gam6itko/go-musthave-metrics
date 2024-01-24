@@ -143,48 +143,48 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 
 				refValue := reflect.ValueOf(stat)
 
-				metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
+				metricList := make([]common.Metrics, 0, len(GaugeToSend)+2)
 
 				for _, gName := range GaugeToSend {
 					f := reflect.Indirect(refValue).FieldByName(gName)
 
-					m := &common.Metrics{
+					m := common.Metrics{
 						ID:    gName,
 						MType: "gauge",
 					}
 					if f.CanInt() {
-						m.Value = float64(f.Int())
+						m.ValueForRef = float64(f.Int())
 					} else if f.CanUint() {
-						m.Value = float64(f.Uint())
+						m.ValueForRef = float64(f.Uint())
 					} else if f.CanFloat() {
-						m.Value = f.Float()
+						m.ValueForRef = f.Float()
 					} else {
 						fmt.Printf("failed to get gauge value `%s`", gName)
 						continue
 					}
 
+					m.Value = &m.ValueForRef
+
 					metricList = append(metricList, m)
 				}
 
-				metricList = append(
-					metricList,
-					&common.Metrics{
-						ID:    "RandomValue",
-						MType: "gauge",
-						Value: rand.Float64(),
-					},
-				)
+				m := common.Metrics{
+					ID:          "RandomValue",
+					MType:       "gauge",
+					ValueForRef: rand.Float64(),
+				}
+				m.Value = &m.ValueForRef
+				metricList = append(metricList, m)
 
-				metricList = append(
-					metricList,
-					&common.Metrics{
-						ID:    "PollCount",
-						MType: "counter",
-						Delta: stat.PollCount,
-					},
-				)
+				m = common.Metrics{
+					ID:          "PollCount",
+					MType:       "counter",
+					DeltaForRef: stat.PollCount,
+				}
+				m.Delta = &m.DeltaForRef
+				metricList = append(metricList, m)
 
-				if err := sendMetrics(&httpClient, metricList); err != nil {
+				if err := sendMetrics(&httpClient, &metricList); err != nil {
 					fmt.Printf("errors making http request: %s\n", err)
 				}
 			}()
@@ -192,7 +192,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	}()
 }
 
-func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
+func sendMetrics(httpClient *http.Client, metricList *[]common.Metrics) error {
 	requestBody := bytes.NewBuffer([]byte{})
 	encoder := json.NewEncoder(requestBody)
 	if err := encoder.Encode(metricList); err != nil {

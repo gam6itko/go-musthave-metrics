@@ -103,11 +103,11 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	switch metric.MType {
 	case "counter":
 		val, _ := MetricStorage.CounterGet(metric.ID)
-		metric.Delta = val
+		metric.Delta = &val
 
 	case "gauge":
 		val, _ := MetricStorage.GaugeGet(metric.ID)
-		metric.Value = val
+		metric.Value = &val
 
 	default:
 		httpErrorJSON(resp, "invalid metric type", http.StatusNotFound)
@@ -244,13 +244,13 @@ func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 func persistMetric(m *common.Metrics) error {
 	switch strings.ToLower(m.MType) {
 	case "counter":
-		if m.Delta < 0 {
+		if *m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		MetricStorage.CounterInc(m.ID, m.Delta)
+		MetricStorage.CounterInc(m.ID, *m.Delta)
 
 	case "gauge":
-		MetricStorage.GaugeSet(m.ID, m.Value)
+		MetricStorage.GaugeSet(m.ID, *m.Value)
 
 	default:
 		return errors.New("invalid m type")
