@@ -9,6 +9,7 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/retrible"
 	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
@@ -68,7 +69,14 @@ func main() {
 
 	fileStorage := newFileStorage(fsConfig)
 	MetricStorage = fallback.NewStorage(
-		database.NewStorage(Database),
+		retrible.NewStorage(
+			database.NewStorage(Database),
+			[]time.Duration{
+				time.Second,
+				time.Second * 2,
+				time.Second * 5,
+			},
+		),
 		fileStorage,
 	)
 

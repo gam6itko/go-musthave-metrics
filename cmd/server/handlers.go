@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
@@ -188,10 +186,7 @@ func postUpdateBatchJSONHandler(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getPingHandler(resp http.ResponseWriter, req *http.Request) {
-	ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
-	defer cancel()
-
-	err := Database.PingContext(ctx)
+	err := Database.PingContext(req.Context())
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
 		return

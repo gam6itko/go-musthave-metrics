@@ -2,6 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"errors"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/retrible"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Storage decorator on file.Storage
@@ -20,6 +23,9 @@ func (ths Storage) GaugeSet(name string, val float64) error {
 		VALUES ($1, $2) 
 		ON CONFLICT ("name") DO UPDATE SET value = EXCLUDED.value`
 	_, err := ths.db.Exec(query, name, val)
+	if ths.isRetrible(err) {
+		return retrible.NewError(err)
+	}
 	return err
 }
 
@@ -31,6 +37,9 @@ func (ths Storage) GaugeGet(name string) (float64, error) {
 
 	var result float64
 	if err := row.Scan(&result); err != nil {
+		if ths.isRetrible(err) {
+			return 0.0, retrible.NewError(err)
+		}
 		return 0, err
 	}
 
@@ -42,6 +51,9 @@ func (ths Storage) GaugeAll() (map[string]float64, error) {
 
 	rows, err := ths.db.Query(`SELECT "name", value FROM "gauge"`)
 	if err != nil {
+		if ths.isRetrible(err) {
+			return result, retrible.NewError(err)
+		}
 		return result, err
 	}
 
@@ -57,8 +69,11 @@ func (ths Storage) GaugeAll() (map[string]float64, error) {
 		result[name] = val
 	}
 
-	if rows.Err() != nil {
-		return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		if ths.isRetrible(err) {
+			return result, retrible.NewError(err)
+		}
+		return result, err
 	}
 
 	return result, nil
@@ -69,17 +84,26 @@ func (ths Storage) CounterInc(name string, val int64) error {
 		VALUES ($1, $2)
 		ON CONFLICT ("name") DO UPDATE SET "value" = "counter"."value" + EXCLUDED.value`
 	_, err := ths.db.Exec(query, name, val)
+	if ths.isRetrible(err) {
+		return retrible.NewError(err)
+	}
 	return err
 }
 
 func (ths Storage) CounterGet(name string) (int64, error) {
 	row := ths.db.QueryRow(`SELECT "value" FROM "counter" WHERE "name" = $1`, name)
-	if row.Err() != nil {
-		return 0, row.Err()
+	if err := row.Err(); err != nil {
+		if ths.isRetrible(err) {
+			return 0, retrible.NewError(err)
+		}
+		return 0, err
 	}
 
 	var result int64
 	if err := row.Scan(&result); err != nil {
+		if ths.isRetrible(err) {
+			return 0, retrible.NewError(err)
+		}
 		return 0, err
 	}
 
@@ -91,6 +115,9 @@ func (ths Storage) CounterAll() (map[string]int64, error) {
 
 	rows, err := ths.db.Query(`SELECT "name", "value" FROM "counter"`)
 	if err != nil {
+		if ths.isRetrible(err) {
+			return result, retrible.NewError(err)
+		}
 		return result, err
 	}
 
@@ -106,9 +133,23 @@ func (ths Storage) CounterAll() (map[string]int64, error) {
 		result[name] = val
 	}
 
-	if rows.Err() != nil {
-		return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		if ths.isRetrible(err) {
+			return result, retrible.NewError(err)
+		}
+		return result, err
 	}
 
 	return result, nil
+}
+
+func (ths Storage) isRetrible(err error) bool {
+	switch true {
+	case errors.Is(err, &pgconn.ConnectError{}):
+		return true
+		//todo добавить еще ошибок
+	default:
+		return false
+
+	}
 }

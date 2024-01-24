@@ -11,6 +11,12 @@ type Error struct {
 	inner error
 }
 
+func NewError(inner error) *Error {
+	return &Error{
+		inner,
+	}
+}
+
 // Error добавляет поддержку интерфейса error для типа TimeError.
 func (ths Error) Error() string {
 	return fmt.Sprintf("%v", ths.inner)
