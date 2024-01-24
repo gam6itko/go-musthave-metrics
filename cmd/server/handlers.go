@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
@@ -102,11 +103,11 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	switch metric.MType {
 	case "counter":
 		val, _ := MetricStorage.CounterGet(metric.ID)
-		metric.Delta = &val
+		metric.Delta = val
 
 	case "gauge":
 		val, _ := MetricStorage.GaugeGet(metric.ID)
-		metric.Value = &val
+		metric.Value = val
 
 	default:
 		httpErrorJSON(resp, "invalid metric type", http.StatusNotFound)
@@ -199,12 +200,12 @@ func getPingHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Write([]byte("OK"))
 }
 
-func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
+func decodeMetricsRequest(req *http.Request) (*common.Metrics, error) {
 	if contentType := req.Header.Get("Content-Type"); contentType != "application/json" {
 		return nil, errors.New("invalid Content-Type header")
 	}
 
-	var metric = new(Metrics)
+	var metric = new(common.Metrics)
 	decoder := json.NewDecoder(req.Body)
 	if err := decoder.Decode(&metric); err != nil {
 		return nil, errors.New("failed to decode request body")
@@ -218,12 +219,12 @@ func decodeMetricsRequest(req *http.Request) (*Metrics, error) {
 	return metric, nil
 }
 
-func decodeMetricsBatchRequest(req *http.Request) ([]Metrics, error) {
+func decodeMetricsBatchRequest(req *http.Request) ([]common.Metrics, error) {
 	if contentType := req.Header.Get("Content-Type"); contentType != "application/json" {
 		return nil, errors.New("invalid Content-Type header")
 	}
 
-	metricList := make([]Metrics, 0, 100)
+	metricList := make([]common.Metrics, 0, 100)
 	decoder := json.NewDecoder(req.Body)
 	if err := decoder.Decode(&metricList); err != nil {
 		return nil, errors.New("failed to decode request body")
@@ -240,16 +241,16 @@ func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 }
 
 // persistMetric Сохраняем метрику в хранилище.
-func persistMetric(m *Metrics) error {
+func persistMetric(m *common.Metrics) error {
 	switch strings.ToLower(m.MType) {
 	case "counter":
-		if *m.Delta < 0 {
+		if m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		MetricStorage.CounterInc(m.ID, *m.Delta)
+		MetricStorage.CounterInc(m.ID, m.Delta)
 
 	case "gauge":
-		MetricStorage.GaugeSet(m.ID, *m.Value)
+		MetricStorage.GaugeSet(m.ID, m.Value)
 
 	default:
 		return errors.New("invalid m type")

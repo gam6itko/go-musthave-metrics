@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
 	"math/rand"
 	"net/http"
@@ -120,8 +123,6 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 		"StackSys",
 		"Sys",
 		"TotalAlloc",
-		// custom
-		"RandomValue",
 	}
 
 	go func() {
@@ -142,59 +143,80 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 
 				refValue := reflect.ValueOf(stat)
 
+				metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
+
 				for _, gName := range GaugeToSend {
 					f := reflect.Indirect(refValue).FieldByName(gName)
 
-					var valueStr string
+					m := &common.Metrics{
+						ID:    gName,
+						MType: "gauge",
+					}
 					if f.CanInt() {
-						valueStr = fmt.Sprintf("%d", f.Int())
+						m.Value = float64(f.Int())
 					} else if f.CanUint() {
-						valueStr = fmt.Sprintf("%d", f.Uint())
+						m.Value = float64(f.Uint())
 					} else if f.CanFloat() {
-						valueStr = fmt.Sprintf("%f", f.Float())
+						m.Value = f.Float()
 					} else {
 						fmt.Printf("failed to get gauge value `%s`", gName)
 						continue
 					}
 
-					req, err := http.NewRequest(
-						http.MethodPost,
-						fmt.Sprintf("http://%s/update/gauge/%s/%s", serverAddr.String(), gName, valueStr),
-						nil,
-					)
-					if err != nil {
-						fmt.Printf("client: errors build http request: %s\n", err)
-					} else {
-						req.Header.Set("Content-Type", "text/plain")
-
-						resp, err := httpClient.Do(req)
-						if err != nil {
-							fmt.Printf("client: errors making http request: %s\n", err)
-						} else {
-							resp.Body.Close()
-						}
-					}
+					metricList = append(metricList, m)
 				}
 
-				// PollCount
-				req, err := http.NewRequest(
-					http.MethodPost,
-					fmt.Sprintf("http://%s/update/counter/%s/%d", serverAddr.String(), "PollCount", stat.PollCount),
-					nil,
+				metricList = append(
+					metricList,
+					&common.Metrics{
+						ID:    "RandomValue",
+						MType: "gauge",
+						Value: rand.Float64(),
+					},
 				)
-				if err != nil {
-					fmt.Printf("client: errors build http request: %s\n", err)
-				} else {
-					req.Header.Set("Content-Type", "text/plain")
 
-					resp, err := httpClient.Do(req)
-					if err != nil {
-						fmt.Printf("client: errors making http request: %s\n", err)
-					} else {
-						resp.Body.Close()
-					}
+				metricList = append(
+					metricList,
+					&common.Metrics{
+						ID:    "PollCount",
+						MType: "counter",
+						Delta: stat.PollCount,
+					},
+				)
+
+				if err := sendMetrics(&httpClient, metricList); err != nil {
+					fmt.Printf("errors making http request: %s\n", err)
 				}
 			}()
 		}
 	}()
+}
+
+func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
+	requestBody := bytes.NewBuffer([]byte{})
+	encoder := json.NewEncoder(requestBody)
+	if err := encoder.Encode(metricList); err != nil {
+		return err
+	}
+
+	// request send
+	req, err := http.NewRequest(
+		http.MethodPost,
+		fmt.Sprintf("http://%s/updates/", serverAddr.String()),
+		requestBody,
+	)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	resp.Body.Close()
+
+	return nil
 }

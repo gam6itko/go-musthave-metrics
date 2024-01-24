@@ -56,9 +56,9 @@ func Test_decodeMetricsBatchRequest(t *testing.T) {
 	// 0
 	require.Equal(t, "PollCount", list[0].ID)
 	require.Equal(t, "counter", list[0].MType)
-	require.Equal(t, int64(1), *list[0].Delta)
+	require.Equal(t, int64(1), list[0].Delta)
 	// 1
 	require.Equal(t, "GaugeABC", list[1].ID)
 	require.Equal(t, "gauge", list[1].MType)
-	require.Equal(t, float64(19.17), *list[1].Value)
+	require.Equal(t, float64(19.17), list[1].Value)
 }
