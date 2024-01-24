@@ -2,70 +2,20 @@ package database
 
 import (
 	"database/sql"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 )
 
 // Storage decorator on file.Storage
 type Storage struct {
-	inner storage.Storage
-	db    *sql.DB
+	db *sql.DB
 }
 
-func NewStorage(inner storage.Storage, db *sql.DB) *Storage {
+func NewStorage(db *sql.DB) *Storage {
 	return &Storage{
-		inner,
 		db,
 	}
 }
 
-func (ths Storage) GaugeSet(name string, val float64) {
-	err := ths.gaugeSet(name, val)
-	if err == nil {
-		return
-	}
-	ths.inner.GaugeSet(name, val)
-}
-
-func (ths Storage) GaugeGet(name string) (float64, bool) {
-	result, err := ths.gaugeGet(name)
-	if err == nil {
-		return result, true
-	}
-	return ths.inner.GaugeGet(name)
-}
-
-func (ths Storage) GaugeAll() map[string]float64 {
-	result, err := ths.gaugeAll()
-	if err == nil {
-		return result
-	}
-	return ths.inner.GaugeAll()
-}
-
-func (ths Storage) CounterInc(name string, val int64) {
-	err := ths.counterInc(name, val)
-	if err == nil {
-		return
-	}
-	ths.inner.CounterInc(name, val)
-}
-
-func (ths Storage) CounterGet(name string) (int64, bool) {
-	result, err := ths.counterGet(name)
-	if err == nil {
-		return result, true
-	}
-	return ths.inner.CounterGet(name)
-}
-
-func (ths Storage) CounterAll() map[string]int64 {
-	if result, err := ths.counterAll(); err == nil {
-		return result
-	}
-	return ths.inner.CounterAll()
-}
-
-func (ths Storage) gaugeSet(name string, val float64) error {
+func (ths Storage) GaugeSet(name string, val float64) error {
 	query := `INSERT INTO "gauge" ("name", "value") 
 		VALUES ($1, $2) 
 		ON CONFLICT ("name") DO UPDATE SET value = EXCLUDED.value`
@@ -73,7 +23,7 @@ func (ths Storage) gaugeSet(name string, val float64) error {
 	return err
 }
 
-func (ths Storage) gaugeGet(name string) (float64, error) {
+func (ths Storage) GaugeGet(name string) (float64, error) {
 	row := ths.db.QueryRow(`SELECT "value" FROM "gauge" WHERE "name" = $1`, name)
 	if row.Err() != nil {
 		return 0, row.Err()
@@ -87,7 +37,7 @@ func (ths Storage) gaugeGet(name string) (float64, error) {
 	return result, nil
 }
 
-func (ths Storage) gaugeAll() (map[string]float64, error) {
+func (ths Storage) GaugeAll() (map[string]float64, error) {
 	result := make(map[string]float64)
 
 	rows, err := ths.db.Query(`SELECT "name", value FROM "gauge"`)
@@ -114,7 +64,7 @@ func (ths Storage) gaugeAll() (map[string]float64, error) {
 	return result, nil
 }
 
-func (ths Storage) counterInc(name string, val int64) error {
+func (ths Storage) CounterInc(name string, val int64) error {
 	query := `INSERT INTO "counter" ("name", "value")
 		VALUES ($1, $2)
 		ON CONFLICT ("name") DO UPDATE SET "value" = "counter"."value" + EXCLUDED.value`
@@ -122,7 +72,7 @@ func (ths Storage) counterInc(name string, val int64) error {
 	return err
 }
 
-func (ths Storage) counterGet(name string) (int64, error) {
+func (ths Storage) CounterGet(name string) (int64, error) {
 	row := ths.db.QueryRow(`SELECT "value" FROM "counter" WHERE "name" = $1`, name)
 	if row.Err() != nil {
 		return 0, row.Err()
@@ -136,7 +86,7 @@ func (ths Storage) counterGet(name string) (int64, error) {
 	return result, nil
 }
 
-func (ths Storage) counterAll() (map[string]int64, error) {
+func (ths Storage) CounterAll() (map[string]int64, error) {
 	result := make(map[string]int64)
 
 	rows, err := ths.db.Query(`SELECT "name", "value" FROM "counter"`)

@@ -17,20 +17,25 @@ func Test_Storage_SaveLoad(t *testing.T) {
 
 		s, err := NewStorage(ms, filePath, false)
 		require.NoError(t, err)
-		s.CounterInc("counter1", 1)
-		s.GaugeSet("gauge1", 2.2)
-		s.Save()
+		err = s.CounterInc("counter1", 1)
+		require.NoError(t, err)
+		err = s.GaugeSet("gauge1", 2.2)
+		require.NoError(t, err)
+		err = s.Save()
+		require.NoError(t, err)
 
 		b, err := os.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(
 			t,
-			`{"Gauge":{"gauge1":2.2},"Counter":{"counter1":1}}`,
+			`{"Counter":{"counter1":1},"Gauge":{"gauge1":2.2}}`,
 			string(b),
 		)
-		s.Close()
+		err = s.Close()
+		require.NoError(t, err)
 	})
-	os.Remove(filePath)
+	err := os.Remove(filePath)
+	require.NoError(t, err)
 
 	filePath = fmt.Sprintf("/tmp/random-%d.json", rand.Int())
 	t.Run("save sync", func(t *testing.T) {
@@ -38,26 +43,32 @@ func Test_Storage_SaveLoad(t *testing.T) {
 
 		s, err := NewStorage(ms, filePath, true)
 		require.NoError(t, err)
-		s.CounterInc("counter1", 3)
-		s.GaugeSet("gauge1", 4.4)
+		err = s.CounterInc("counter1", 3)
+		require.NoError(t, err)
+		err = s.GaugeSet("gauge1", 4.4)
+		require.NoError(t, err)
 
 		b, err := os.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(
 			t,
-			`{"Gauge":{"gauge1":4.4},"Counter":{"counter1":3}}`,
+			`{"Counter":{"counter1":3},"Gauge":{"gauge1":4.4}}`,
 			string(b),
 		)
 
-		s.Close()
+		err = s.Close()
+		require.NoError(t, err)
 	})
-	os.Remove(filePath)
+	err = os.Remove(filePath)
+	require.NoError(t, err)
 
 	filePath = fmt.Sprintf("/tmp/random-%d.json", rand.Int())
 	t.Run("multi load", func(t *testing.T) {
 		ms := memory.NewStorage()
-		ms.CounterInc("counter3", 3)
-		ms.GaugeSet("gauge4", 4.4)
+		err := ms.CounterInc("counter3", 3)
+		require.NoError(t, err)
+		err = ms.GaugeSet("gauge4", 4.4)
+		require.NoError(t, err)
 
 		s, err := NewStorage(ms, filePath, false)
 		require.NoError(t, err)
@@ -70,30 +81,34 @@ func Test_Storage_SaveLoad(t *testing.T) {
 		err = s2.Load()
 		require.NoError(t, err)
 
-		cVal1, exists := ms.CounterGet("counter3")
-		require.True(t, exists)
-		cVal2, exists := ms2.CounterGet("counter3")
-		require.True(t, exists)
+		cVal1, err := ms.CounterGet("counter3")
+		require.NoError(t, err)
+		cVal2, err := ms2.CounterGet("counter3")
+		require.NoError(t, err)
 		require.Equal(t, cVal1, cVal2)
 
-		gVal1, exists := ms.GaugeGet("gauge4")
-		require.True(t, exists)
-		gVal2, exists := ms2.GaugeGet("gauge4")
-		require.True(t, exists)
+		gVal1, err := ms.GaugeGet("gauge4")
+		require.NoError(t, err)
+		gVal2, err := ms2.GaugeGet("gauge4")
+		require.NoError(t, err)
 		require.Equal(t, gVal1, gVal2)
 
 		// еще один load
-		ms2.CounterInc("counter3", 9999)
-		ms2.GaugeSet("gauge4", 9999)
+		err = ms2.CounterInc("counter3", 9999)
+		require.NoError(t, err)
+		err = ms2.GaugeSet("gauge4", 9999)
+		require.NoError(t, err)
 		err = s2.Load()
 		require.NoError(t, err)
 
-		cVal2, exists = ms2.CounterGet("counter3")
-		require.True(t, exists)
+		cVal2, err = ms2.CounterGet("counter3")
+		require.NoError(t, err)
 		require.Equal(t, int64(3), cVal2)
-		gVal2, exists = ms2.GaugeGet("gauge4")
-		require.True(t, exists)
+		gVal2, err = ms2.GaugeGet("gauge4")
+		require.NoError(t, err)
 		require.Equal(t, 4.4, gVal2)
 	})
-	os.Remove(filePath)
+
+	err = os.Remove(filePath)
+	require.NoError(t, err)
 }

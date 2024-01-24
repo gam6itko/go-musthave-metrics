@@ -20,12 +20,14 @@ func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	io.WriteString(resp, "<h2>All metrics</h2>")
 
 	io.WriteString(resp, "<h2>Counter</h2>")
-	for name, val := range MetricStorage.CounterAll() {
+	counterAll, _ := MetricStorage.CounterAll()
+	for name, val := range counterAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
 	}
 
 	io.WriteString(resp, "<h2>Gauge</h2>")
-	for name, val := range MetricStorage.GaugeAll() {
+	gaugeAll, _ := MetricStorage.GaugeAll()
+	for name, val := range gaugeAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
 	}
 }
@@ -39,16 +41,16 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch chi.URLParam(req, "type") {
 	case "counter":
-		val, exists := MetricStorage.CounterGet(name)
-		if !exists {
+		val, err := MetricStorage.CounterGet(name)
+		if err != nil {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
 		io.WriteString(resp, fmt.Sprintf("%d", val))
 
 	case "gauge":
-		val, exists := MetricStorage.GaugeGet(name)
-		if !exists {
+		val, err := MetricStorage.GaugeGet(name)
+		if err != nil {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}

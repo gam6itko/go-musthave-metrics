@@ -6,6 +6,7 @@ import (
 	"flag"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/go-chi/chi/v5"
@@ -66,9 +67,9 @@ func main() {
 	database.InitSchema(Database)
 
 	fileStorage := newFileStorage(fsConfig)
-	MetricStorage = database.NewStorage(
+	MetricStorage = fallback.NewStorage(
+		database.NewStorage(Database),
 		fileStorage,
-		Database,
 	)
 
 	server := &http.Server{

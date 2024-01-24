@@ -30,29 +30,33 @@ func NewStorage(inner storage.Storage, filepath string, ioSync bool) (*Storage, 
 	}, nil
 }
 
-func (ths Storage) GaugeSet(name string, val float64) {
-	ths.inner.GaugeSet(name, val)
-	ths.Save()
+func (ths Storage) GaugeSet(name string, val float64) error {
+	if err := ths.inner.GaugeSet(name, val); err != nil {
+		return err
+	}
+	return ths.Save()
 }
 
-func (ths Storage) GaugeGet(name string) (float64, bool) {
+func (ths Storage) GaugeGet(name string) (float64, error) {
 	return ths.inner.GaugeGet(name)
 }
 
-func (ths Storage) GaugeAll() map[string]float64 {
+func (ths Storage) GaugeAll() (map[string]float64, error) {
 	return ths.inner.GaugeAll()
 }
 
-func (ths Storage) CounterInc(name string, val int64) {
-	ths.inner.CounterInc(name, val)
-	ths.Save()
+func (ths Storage) CounterInc(name string, val int64) error {
+	if err := ths.inner.CounterInc(name, val); err != nil {
+		return err
+	}
+	return ths.Save()
 }
 
-func (ths Storage) CounterGet(name string) (int64, bool) {
+func (ths Storage) CounterGet(name string) (int64, error) {
 	return ths.inner.CounterGet(name)
 }
 
-func (ths Storage) CounterAll() map[string]int64 {
+func (ths Storage) CounterAll() (map[string]int64, error) {
 	return ths.inner.CounterAll()
 }
 
