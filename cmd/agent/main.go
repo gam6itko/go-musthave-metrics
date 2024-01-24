@@ -123,6 +123,8 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 		"StackSys",
 		"Sys",
 		"TotalAlloc",
+		// custom
+		"RandomValue",
 	}
 
 	go func() {
@@ -169,14 +171,6 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				}
 
 				m := common.Metrics{
-					ID:          "RandomValue",
-					MType:       "gauge",
-					ValueForRef: rand.Float64(),
-				}
-				m.Value = &m.ValueForRef
-				metricList = append(metricList, m)
-
-				m = common.Metrics{
 					ID:          "PollCount",
 					MType:       "counter",
 					DeltaForRef: stat.PollCount,
