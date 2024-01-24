@@ -25,13 +25,7 @@ type Storage struct {
 	tryEach []time.Duration
 }
 
-func NewStorage(inner storage.Storage) *Storage {
-	tryEach := []time.Duration{
-		time.Second,
-		2 * time.Second,
-		5 * time.Second,
-	}
-
+func NewStorage(inner storage.Storage, tryEach []time.Duration) *Storage {
 	return &Storage{
 		inner,
 		tryEach,
