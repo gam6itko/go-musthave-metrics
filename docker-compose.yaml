@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+  postgres:
+    container_name: yp-metrics-postgres
+    image: postgres:13
+    environment:
+      POSTGRES_DB: yp_metrics
+      POSTGRES_PASSWORD: password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  pg-data: ~

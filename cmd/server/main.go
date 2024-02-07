@@ -2,10 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/retrible"
 	"github.com/go-chi/chi/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -14,17 +20,26 @@ import (
 	"time"
 )
 
-var MetricStorage *file.Storage
+// todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
+var MetricStorage storage.Storage
+var Database *sql.DB
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
 	var bindAddr string
+	var dbDsn string
 
 	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
 
+	//init db
+	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
+		dbDsn = envVal
+	}
+
 	bindAddrTmp := flag.String("a", "", "Net address host:port")
+	dbDsnTmp := flag.String("d", "", "Database DSN")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
@@ -40,8 +55,30 @@ func main() {
 		}
 	}
 
-	// Сохраняем метрики по интервалу
-	MetricStorage = newFileStorage(fsConfig)
+	// database open
+	if *dbDsnTmp != "" {
+		dbDsn = *dbDsnTmp
+	}
+
+	tmpDB, err := sql.Open("pgx", dbDsn)
+	if err != nil {
+		panic(err)
+	}
+	Database = tmpDB
+	database.InitSchema(Database)
+
+	fileStorage := newFileStorage(fsConfig)
+	MetricStorage = fallback.NewStorage(
+		retrible.NewStorage(
+			database.NewStorage(Database),
+			[]time.Duration{
+				time.Second,
+				time.Second * 2,
+				time.Second * 5,
+			},
+		),
+		fileStorage,
+	)
 
 	server := &http.Server{
 		Addr:    bindAddr,
@@ -55,6 +92,12 @@ func main() {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
+
+	// on server.stop
+	if err := fileStorage.Save(); err != nil {
+		Log.Error(err.Error(), zap.String("event", "metrics save"))
+	}
+	fileStorage.Close()
 }
 
 func newRouter() chi.Router {
@@ -69,6 +112,9 @@ func newRouter() chi.Router {
 	// json
 	r.Post("/value/", postValueJSONHandler)
 	r.Post("/update/", postUpdateJSONHandler)
+	r.Post("/updates/", postUpdateBatchJSONHandler)
+	// database
+	r.Get("/ping", getPingHandler)
 
 	return r
 }
@@ -111,10 +157,6 @@ func catchSignal(server *http.Server) {
 	s := <-terminateSignals
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
 	// metrics save
-	if err := MetricStorage.Save(); err != nil {
-		Log.Error(err.Error(), zap.String("event", "metrics save"))
-	}
-	MetricStorage.Close()
 
 	err := server.Shutdown(context.Background())
 	Log.Info("Error from shutdown", zap.String("error", err.Error()))
