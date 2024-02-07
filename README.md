@@ -11,6 +11,7 @@ STORE_INTERVAL=300
 FILE_STORAGE_PATH=/tmp/metrics-db.json
 RESTORE=true
 DATABASE_DSN="postgres://postgres:password@postgres:5432/yp_metrics"
+KEY="key"
 ```
 
 ### get docker ip
@@ -19,11 +20,20 @@ DATABASE_DSN="postgres://postgres:password@postgres:5432/yp_metrics"
 docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' yp-metrics-postgres
 ```
 
-## sprint
+## agent
 
-### iter7
+```dotenv
+ADDRESS=localhost:8080
+REPORT_INTERVAL=10
+POLL_INTERVAL=2
+KEY="abc"
+```
 
-#### update
+# sprint
+
+## iter7
+
+### update
 
 ```http request
 POST localhost:8080/update/
@@ -36,7 +46,7 @@ Content-Type: application/json
 }
 ```
 
-#### get value 
+### get value 
 
 ```http request
 POST localhost:8080/value/
@@ -48,7 +58,7 @@ Content-Type: application/json
 }
 ```
 
-### iter12
+## iter12
 
 ```http request
 POST localhost:8080/updates/

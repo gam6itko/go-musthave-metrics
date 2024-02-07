@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -83,5 +88,44 @@ func compressMiddleware(h http.Handler) http.Handler {
 
 		// передаём управление хендлеру
 		h.ServeHTTP(ow, r)
+	})
+}
+
+func hashCheckMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _key == "" {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
+		base64str := r.Header.Get("HashSHA256")
+		hash, err := base64.StdEncoding.DecodeString(base64str)
+		if err != nil {
+			Log.Error(err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		bRequestBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		r.Body.Close()
+
+		h := hmac.New(sha256.New, []byte(_key))
+		if _, err := h.Write(bRequestBody); err != nil {
+			Log.Error(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		dst := h.Sum(nil)
+		if !bytes.Equal(hash, dst) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		r.Body = io.NopCloser(bytes.NewBuffer(bRequestBody))
+		handler.ServeHTTP(w, r)
 	})
 }

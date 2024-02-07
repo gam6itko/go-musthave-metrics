@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,41 +27,47 @@ type metrics struct {
 	RandomValue float64
 }
 
-var serverAddr commonFlags.NetAddress
-var stat metrics
-var reportInterval uint
-var pollInterval uint
+var _serverAddr commonFlags.NetAddress
+var _stat metrics
+var _reportInterval uint
+var _pollInterval uint
+var _key string
 
 func init() {
-	serverAddr = commonFlags.NewNetAddr("localhost", 8080)
+	_serverAddr = commonFlags.NewNetAddr("localhost", 8080)
 
-	_ = flag.Value(&serverAddr)
-	flag.Var(&serverAddr, "a", "Server address host:port")
+	_ = flag.Value(&_serverAddr)
+	flag.Var(&_serverAddr, "a", "Server address host:port")
 	reportIntervalF := flag.Uint("r", 10, "Report interval")
 	pollIntervalF := flag.Uint("p", 2, "Poll interval")
+	keyF := flag.String("k", "", "Encryption key")
 	flag.Parse()
 
-	reportInterval = *reportIntervalF
-	pollInterval = *pollIntervalF
+	_reportInterval = *reportIntervalF
+	_pollInterval = *pollIntervalF
+	_key = *keyF
 
 	// read from env
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
-		if err := serverAddr.FromString(envVal); err != nil {
+		if err := _serverAddr.FromString(envVal); err != nil {
 			panic(err)
 		}
 	}
 	if envVal := os.Getenv("REPORT_INTERVAL"); envVal != "" {
 		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
-			reportInterval = uint(val)
+			_reportInterval = uint(val)
 		}
 	}
 	if envVal := os.Getenv("POLL_INTERVAL"); envVal != "" {
 		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
-			pollInterval = uint(val)
+			_pollInterval = uint(val)
 		}
 	}
+	if envVal := os.Getenv("KEY"); envVal != "" {
+		_key = envVal
+	}
 
-	stat = metrics{
+	_stat = metrics{
 		PollCount: 0,
 	}
 }
@@ -84,11 +93,11 @@ func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				mux.Lock()
 				defer mux.Unlock()
 
-				runtime.ReadMemStats(&stat.MemStats)
-				stat.PollCount++
-				stat.RandomValue = rand.Float64()
+				runtime.ReadMemStats(&_stat.MemStats)
+				_stat.PollCount++
+				_stat.RandomValue = rand.Float64()
 			}()
-			time.Sleep(time.Duration(pollInterval) * time.Second)
+			time.Sleep(time.Duration(_pollInterval) * time.Second)
 		}
 	}()
 }
@@ -135,16 +144,16 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 			Timeout: 30 * time.Second,
 		}
 
-		sleepDuration := time.Duration(reportInterval) * time.Second
+		sleepDuration := time.Duration(_reportInterval) * time.Second
 		for {
 			time.Sleep(sleepDuration)
-			log.Printf("sending metrics: %d\n", stat.PollCount)
+			log.Printf("sending metrics: %d\n", _stat.PollCount)
 
 			func() {
 				mux.RLock()
 				defer mux.RUnlock()
 
-				refValue := reflect.ValueOf(stat)
+				refValue := reflect.ValueOf(_stat)
 
 				metricList := make([]common.Metrics, 0, len(GaugeToSend)+2)
 
@@ -174,7 +183,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				m := common.Metrics{
 					ID:          "PollCount",
 					MType:       "counter",
-					DeltaForRef: stat.PollCount,
+					DeltaForRef: _stat.PollCount,
 				}
 				m.Delta = &m.DeltaForRef
 				metricList = append(metricList, m)
@@ -197,7 +206,7 @@ func sendMetrics(httpClient *http.Client, metricList *[]common.Metrics) error {
 	// request send
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("http://%s/updates/", serverAddr.String()),
+		fmt.Sprintf("http://%s/updates/", _serverAddr.String()),
 		requestBody,
 	)
 	if err != nil {
@@ -205,6 +214,18 @@ func sendMetrics(httpClient *http.Client, metricList *[]common.Metrics) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if _key != "" {
+		// подписываем алгоритмом HMAC, используя SHA-256
+		h := hmac.New(sha256.New, []byte(_key))
+		if _, err := h.Write(requestBody.Bytes()); err != nil {
+			return err
+		}
+		dst := h.Sum(nil)
+
+		base64Enc := base64.StdEncoding.EncodeToString(dst)
+		req.Header.Set("HashSHA256", base64Enc)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {

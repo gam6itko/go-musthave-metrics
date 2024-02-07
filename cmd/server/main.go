@@ -23,6 +23,7 @@ import (
 // todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.Storage
 var Database *sql.DB
+var _key string
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
@@ -32,7 +33,9 @@ func main() {
 	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
-
+	if envVal, exists := os.LookupEnv("KEY"); exists {
+		_key = envVal
+	}
 	//init db
 	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
 		dbDsn = envVal
@@ -40,6 +43,7 @@ func main() {
 
 	bindAddrTmp := flag.String("a", "", "Net address host:port")
 	dbDsnTmp := flag.String("d", "", "Database DSN")
+	keyTmp := flag.String("k", "", "Hash key")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
@@ -54,10 +58,14 @@ func main() {
 			bindAddr = "localhost:8080"
 		}
 	}
-
 	// database open
 	if *dbDsnTmp != "" {
 		dbDsn = *dbDsnTmp
+	}
+	if _key == "" {
+		if *keyTmp != "" {
+			_key = *keyTmp
+		}
 	}
 
 	tmpDB, err := sql.Open("pgx", dbDsn)
@@ -105,6 +113,7 @@ func newRouter() chi.Router {
 
 	r.Use(requestLoggingMiddleware)
 	r.Use(compressMiddleware)
+	r.Use(hashCheckMiddleware)
 
 	r.Get("/", getAllMetricsHandler)
 	r.Get("/value/{type}/{name}", getValueHandler)
