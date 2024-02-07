@@ -1,6 +1,9 @@
 package fallback
 
-import "github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+import (
+	"context"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+)
 
 type Storage struct {
 	inner    storage.Storage
@@ -14,44 +17,44 @@ func NewStorage(inner storage.Storage, fallback storage.Storage) *Storage {
 	}
 }
 
-func (ths Storage) GaugeSet(name string, val float64) error {
-	if err := ths.inner.GaugeSet(name, val); err == nil {
+func (ths Storage) GaugeSet(ctx context.Context, name string, val float64) error {
+	if err := ths.inner.GaugeSet(ctx, name, val); err == nil {
 		return nil
 	}
-	return ths.fallback.GaugeSet(name, val)
+	return ths.fallback.GaugeSet(ctx, name, val)
 }
 
-func (ths Storage) GaugeGet(name string) (float64, error) {
-	if result, err := ths.inner.GaugeGet(name); err == nil {
+func (ths Storage) GaugeGet(ctx context.Context, name string) (float64, error) {
+	if result, err := ths.inner.GaugeGet(ctx, name); err == nil {
 		return result, nil
 	}
-	return ths.fallback.GaugeGet(name)
+	return ths.fallback.GaugeGet(ctx, name)
 }
 
-func (ths Storage) GaugeAll() (map[string]float64, error) {
-	if result, err := ths.inner.GaugeAll(); err == nil {
+func (ths Storage) GaugeAll(ctx context.Context) (map[string]float64, error) {
+	if result, err := ths.inner.GaugeAll(ctx); err == nil {
 		return result, nil
 	}
-	return ths.fallback.GaugeAll()
+	return ths.fallback.GaugeAll(ctx)
 }
 
-func (ths Storage) CounterInc(name string, val int64) error {
-	if err := ths.inner.CounterInc(name, val); err == nil {
+func (ths Storage) CounterInc(ctx context.Context, name string, val int64) error {
+	if err := ths.inner.CounterInc(ctx, name, val); err == nil {
 		return nil
 	}
-	return ths.fallback.CounterInc(name, val)
+	return ths.fallback.CounterInc(ctx, name, val)
 }
 
-func (ths Storage) CounterGet(name string) (int64, error) {
-	if result, err := ths.inner.CounterGet(name); err == nil {
+func (ths Storage) CounterGet(ctx context.Context, name string) (int64, error) {
+	if result, err := ths.inner.CounterGet(ctx, name); err == nil {
 		return result, nil
 	}
-	return ths.fallback.CounterGet(name)
+	return ths.fallback.CounterGet(ctx, name)
 }
 
-func (ths Storage) CounterAll() (map[string]int64, error) {
-	if result, err := ths.inner.CounterAll(); err == nil {
+func (ths Storage) CounterAll(ctx context.Context) (map[string]int64, error) {
+	if result, err := ths.inner.CounterAll(ctx); err == nil {
 		return result, nil
 	}
-	return ths.fallback.CounterAll()
+	return ths.fallback.CounterAll(ctx)
 }

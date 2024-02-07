@@ -1,6 +1,8 @@
 package retrible
 
 import (
+	"context"
+	"errors"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -8,7 +10,77 @@ import (
 	"time"
 )
 
+// Вызвать дочерний storage 2 раза
 func Test_Decoration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	inner := mocks.NewMockStorage(ctrl)
+	// counter
+	inner.EXPECT().
+		CounterInc(context.Background(), "foo", int64(1)).
+		Return(errors.New("boom")).
+		Times(2)
+	inner.EXPECT().
+		CounterGet(context.Background(), "foo").
+		Return(int64(0), errors.New("boom")).
+		Times(2)
+	inner.EXPECT().
+		CounterAll(context.Background()).
+		Return(map[string]int64{}, errors.New("boom")).
+		Times(2)
+	// gauge
+	inner.EXPECT().
+		GaugeSet(context.Background(), "bar", 19.17).
+		Return(errors.New("boom")).
+		MinTimes(2)
+	inner.EXPECT().
+		GaugeGet(context.Background(), "bar").
+		Return(float64(0.0), errors.New("boom")).
+		MinTimes(2)
+	inner.EXPECT().
+		GaugeAll(context.Background()).
+		Return(map[string]float64{}, errors.New("boom")).
+		Times(2)
+
+	s := NewStorage(
+		inner,
+		[]time.Duration{
+			time.Nanosecond,
+			time.Nanosecond,
+		},
+	)
+
+	t.Run("counter", func(t *testing.T) {
+		ctx := context.Background()
+
+		name := "foo"
+		err := s.CounterInc(ctx, name, 1)
+		assert.Error(t, err)
+
+		_, err = s.CounterGet(ctx, name)
+		assert.Error(t, err)
+
+		_, err = s.CounterAll(ctx)
+		assert.Error(t, err)
+	})
+
+	t.Run("gauge", func(t *testing.T) {
+		ctx := context.Background()
+
+		name := "bar"
+		err := s.GaugeSet(ctx, name, 19.17)
+		assert.Error(t, err)
+
+		_, err = s.GaugeGet(ctx, name)
+		assert.Error(t, err)
+
+		_, err = s.GaugeAll(ctx)
+		assert.Error(t, err)
+	})
+}
+
+func Test_Decoration2(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

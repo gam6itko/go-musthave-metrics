@@ -1,6 +1,7 @@
 package retrible
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
@@ -39,9 +40,10 @@ func NewStorage(inner storage.Storage, tryEach []time.Duration) *Storage {
 	}
 }
 
-func (ths Storage) CounterInc(name string, val int64) (err error) {
+func (ths Storage) GaugeSet(ctx context.Context, name string, val float64) (err error) {
 	for _, d := range ths.tryEach {
-		err = ths.inner.CounterInc(name, val)
+
+		err = ths.inner.GaugeSet(ctx, name, val)
 		if err == nil {
 			return
 		}
@@ -54,9 +56,25 @@ func (ths Storage) CounterInc(name string, val int64) (err error) {
 	return
 }
 
-func (ths Storage) CounterGet(name string) (result int64, err error) {
+func (ths Storage) GaugeGet(ctx context.Context, name string) (result float64, err error) {
 	for _, d := range ths.tryEach {
-		result, err = ths.inner.CounterGet(name)
+
+		result, err = ths.inner.GaugeGet(ctx, name)
+		if err == nil {
+			return
+		}
+
+		if errors.Is(err, Error{}) {
+			time.Sleep(d)
+		}
+	}
+
+	return
+}
+func (ths Storage) GaugeAll(ctx context.Context) (result map[string]float64, err error) {
+	for _, d := range ths.tryEach {
+
+		result, err = ths.inner.GaugeAll(ctx)
 		if err == nil {
 			return
 		}
@@ -69,9 +87,10 @@ func (ths Storage) CounterGet(name string) (result int64, err error) {
 	return
 }
 
-func (ths Storage) CounterAll() (result map[string]int64, err error) {
+func (ths Storage) CounterInc(ctx context.Context, name string, val int64) (err error) {
 	for _, d := range ths.tryEach {
-		result, err = ths.inner.CounterAll()
+
+		err = ths.inner.CounterInc(ctx, name, val)
 		if err == nil {
 			return
 		}
@@ -84,9 +103,10 @@ func (ths Storage) CounterAll() (result map[string]int64, err error) {
 	return
 }
 
-func (ths Storage) GaugeSet(name string, val float64) (err error) {
+func (ths Storage) CounterGet(ctx context.Context, name string) (result int64, err error) {
 	for _, d := range ths.tryEach {
-		err = ths.inner.GaugeSet(name, val)
+
+		result, err = ths.inner.CounterGet(ctx, name)
 		if err == nil {
 			return
 		}
@@ -99,23 +119,10 @@ func (ths Storage) GaugeSet(name string, val float64) (err error) {
 	return
 }
 
-func (ths Storage) GaugeGet(name string) (result float64, err error) {
+func (ths Storage) CounterAll(ctx context.Context) (result map[string]int64, err error) {
 	for _, d := range ths.tryEach {
-		result, err = ths.inner.GaugeGet(name)
-		if err == nil {
-			return
-		}
 
-		if errors.Is(err, Error{}) {
-			time.Sleep(d)
-		}
-	}
-
-	return
-}
-func (ths Storage) GaugeAll() (result map[string]float64, err error) {
-	for _, d := range ths.tryEach {
-		result, err = ths.inner.GaugeAll()
+		result, err = ths.inner.CounterAll(ctx)
 		if err == nil {
 			return
 		}

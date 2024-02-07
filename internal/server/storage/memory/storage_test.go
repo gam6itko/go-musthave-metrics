@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -8,11 +9,13 @@ import (
 func TestGaugeSetGet(t *testing.T) {
 	s := NewStorage()
 
+	ctx := context.Background()
+
 	metricName := "foo"
-	err := s.GaugeSet(metricName, 19.17)
+	err := s.GaugeSet(ctx, metricName, 19.17)
 	assert.NoError(t, err)
 
-	val, err := s.GaugeGet(metricName)
+	val, err := s.GaugeGet(ctx, metricName)
 	assert.NoError(t, err)
 	assert.Equal(t, 19.17, val)
 }
@@ -20,11 +23,13 @@ func TestGaugeSetGet(t *testing.T) {
 func TestCounterSetGet(t *testing.T) {
 	s := NewStorage()
 
+	ctx := context.Background()
+
 	metricName := "bar"
-	err := s.CounterInc(metricName, 1)
+	err := s.CounterInc(ctx, metricName, 1)
 	assert.NoError(t, err)
 
-	val, err := s.CounterGet(metricName)
+	val, err := s.CounterGet(ctx, metricName)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), val)
 }
@@ -32,8 +37,10 @@ func TestCounterSetGet(t *testing.T) {
 func TestCounterGetNotExists(t *testing.T) {
 	s := NewStorage()
 
+	ctx := context.Background()
+
 	metricName := "not_found"
-	val, err := s.CounterGet(metricName)
+	val, err := s.CounterGet(ctx, metricName)
 	assert.Error(t, err)
 	assert.Equal(t, int64(0), val)
 }

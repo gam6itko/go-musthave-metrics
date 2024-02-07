@@ -18,13 +18,13 @@ func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	io.WriteString(resp, "<h2>All metrics</h2>")
 
 	io.WriteString(resp, "<h2>Counter</h2>")
-	counterAll, _ := MetricStorage.CounterAll()
+	counterAll, _ := MetricStorage.CounterAll(req.Context())
 	for name, val := range counterAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
 	}
 
 	io.WriteString(resp, "<h2>Gauge</h2>")
-	gaugeAll, _ := MetricStorage.GaugeAll()
+	gaugeAll, _ := MetricStorage.GaugeAll(req.Context())
 	for name, val := range gaugeAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
 	}
@@ -39,7 +39,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch chi.URLParam(req, "type") {
 	case "counter":
-		val, err := MetricStorage.CounterGet(name)
+		val, err := MetricStorage.CounterGet(req.Context(), name)
 		if err != nil {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
@@ -47,7 +47,7 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 		io.WriteString(resp, fmt.Sprintf("%d", val))
 
 	case "gauge":
-		val, err := MetricStorage.GaugeGet(name)
+		val, err := MetricStorage.GaugeGet(req.Context(), name)
 		if err != nil {
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
@@ -71,7 +71,10 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		MetricStorage.CounterInc(name, v)
+		if err := MetricStorage.CounterInc(req.Context(), name, v); err != nil {
+			http.Error(resp, "fail to counter inc", http.StatusInternalServerError)
+			return
+		}
 
 	case "gauge":
 		v, err := strconv.ParseFloat(value, 64)
@@ -79,7 +82,10 @@ func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "invalid gauge value", http.StatusBadRequest)
 			return
 		}
-		MetricStorage.GaugeSet(name, v)
+		if err := MetricStorage.GaugeSet(req.Context(), name, v); err != nil {
+			http.Error(resp, "fail to gauge set", http.StatusInternalServerError)
+			return
+		}
 
 	default:
 		http.Error(resp, "invalid metric type", http.StatusBadRequest)
@@ -102,11 +108,11 @@ func postValueJSONHandler(resp http.ResponseWriter, req *http.Request) {
 
 	switch metric.MType {
 	case "counter":
-		val, _ := MetricStorage.CounterGet(metric.ID)
+		val, _ := MetricStorage.CounterGet(req.Context(), metric.ID)
 		metric.Delta = &val
 
 	case "gauge":
-		val, _ := MetricStorage.GaugeGet(metric.ID)
+		val, _ := MetricStorage.GaugeGet(req.Context(), metric.ID)
 		metric.Value = &val
 
 	default:
@@ -137,7 +143,7 @@ func postUpdateJSONHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := persistMetric(metric); err != nil {
+	if err := persistMetric(req.Context(), metric); err != nil {
 		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -166,7 +172,7 @@ func postUpdateBatchJSONHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, m := range metricList {
-		if err := persistMetric(&m); err != nil {
+		if err := persistMetric(req.Context(), &m); err != nil {
 			httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -238,16 +244,16 @@ func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 }
 
 // persistMetric Сохраняем метрику в хранилище.
-func persistMetric(m *common.Metrics) error {
+func persistMetric(ctx context.Context, m *common.Metrics) error {
 	switch strings.ToLower(m.MType) {
 	case "counter":
 		if *m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		MetricStorage.CounterInc(m.ID, *m.Delta)
+		MetricStorage.CounterInc(ctx, m.ID, *m.Delta)
 
 	case "gauge":
-		MetricStorage.GaugeSet(m.ID, *m.Value)
+		MetricStorage.GaugeSet(ctx, m.ID, *m.Value)
 
 	default:
 		return errors.New("invalid m type")

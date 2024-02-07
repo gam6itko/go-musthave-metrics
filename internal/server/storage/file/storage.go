@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
@@ -30,34 +31,34 @@ func NewStorage(inner storage.Storage, filepath string, ioSync bool) (*Storage, 
 	}, nil
 }
 
-func (ths Storage) GaugeSet(name string, val float64) error {
-	if err := ths.inner.GaugeSet(name, val); err != nil {
+func (ths Storage) GaugeSet(ctx context.Context, name string, val float64) error {
+	if err := ths.inner.GaugeSet(ctx, name, val); err != nil {
 		return err
 	}
 	return ths.Save()
 }
 
-func (ths Storage) GaugeGet(name string) (float64, error) {
-	return ths.inner.GaugeGet(name)
+func (ths Storage) GaugeGet(ctx context.Context, name string) (float64, error) {
+	return ths.inner.GaugeGet(ctx, name)
 }
 
-func (ths Storage) GaugeAll() (map[string]float64, error) {
-	return ths.inner.GaugeAll()
+func (ths Storage) GaugeAll(ctx context.Context) (map[string]float64, error) {
+	return ths.inner.GaugeAll(ctx)
 }
 
-func (ths Storage) CounterInc(name string, val int64) error {
-	if err := ths.inner.CounterInc(name, val); err != nil {
+func (ths Storage) CounterInc(ctx context.Context, name string, val int64) error {
+	if err := ths.inner.CounterInc(ctx, name, val); err != nil {
 		return err
 	}
 	return ths.Save()
 }
 
-func (ths Storage) CounterGet(name string) (int64, error) {
-	return ths.inner.CounterGet(name)
+func (ths Storage) CounterGet(ctx context.Context, name string) (int64, error) {
+	return ths.inner.CounterGet(ctx, name)
 }
 
-func (ths Storage) CounterAll() (map[string]int64, error) {
-	return ths.inner.CounterAll()
+func (ths Storage) CounterAll(ctx context.Context) (map[string]int64, error) {
+	return ths.inner.CounterAll(ctx)
 }
 
 func (ths Storage) Save() error {

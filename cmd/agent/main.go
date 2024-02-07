@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -137,7 +138,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 		sleepDuration := time.Duration(reportInterval) * time.Second
 		for {
 			time.Sleep(sleepDuration)
-			fmt.Printf("sending metrics: %d\n", stat.PollCount)
+			log.Printf("sending metrics: %d\n", stat.PollCount)
 
 			func() {
 				mux.RLock()
@@ -161,7 +162,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 					} else if f.CanFloat() {
 						m.ValueForRef = f.Float()
 					} else {
-						fmt.Printf("failed to get gauge value `%s`", gName)
+						log.Printf("failed to get gauge value `%s`", gName)
 						continue
 					}
 
@@ -179,7 +180,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				metricList = append(metricList, m)
 
 				if err := sendMetrics(&httpClient, &metricList); err != nil {
-					fmt.Printf("errors making http request: %s\n", err)
+					log.Printf("errors making http request: %s\n", err)
 				}
 			}()
 		}

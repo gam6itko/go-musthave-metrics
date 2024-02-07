@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/file"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/stretchr/testify/assert"
@@ -87,12 +88,13 @@ func TestGetValue(t *testing.T) {
 	MetricStorage = memory.NewStorage()
 	require.NoError(t, err)
 
+	ctx := context.Background()
 	// preset
-	MetricStorage.CounterInc("fooCounter", 1)
-	MetricStorage.CounterInc("bar_c", 2)
+	MetricStorage.CounterInc(ctx, "fooCounter", 1)
+	MetricStorage.CounterInc(ctx, "bar_c", 2)
 
-	MetricStorage.GaugeSet("foo_g", 1.1)
-	MetricStorage.GaugeSet("bar_g", 2.2)
+	MetricStorage.GaugeSet(ctx, "foo_g", 1.1)
+	MetricStorage.GaugeSet(ctx, "bar_g", 2.2)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()
