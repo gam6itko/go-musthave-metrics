@@ -99,6 +99,11 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 		}
 
 		base64str := r.Header.Get("HashSHA256")
+		if base64str == "" {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
 		hash, err := base64.StdEncoding.DecodeString(base64str)
 		if err != nil {
 			Log.Error(err.Error())

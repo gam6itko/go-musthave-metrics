@@ -112,8 +112,8 @@ func newRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(requestLoggingMiddleware)
-	r.Use(compressMiddleware)
 	r.Use(hashCheckMiddleware)
+	r.Use(compressMiddleware)
 
 	r.Get("/", getAllMetricsHandler)
 	r.Get("/value/{type}/{name}", getValueHandler)
