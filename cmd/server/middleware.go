@@ -132,5 +132,7 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 
 		r.Body = io.NopCloser(bytes.NewBuffer(bRequestBody))
 		handler.ServeHTTP(w, r)
+
+		//todo w.Header().Set("HashSHA256", "response body hash")
 	})
 }
