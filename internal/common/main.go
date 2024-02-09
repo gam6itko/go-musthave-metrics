@@ -3,6 +3,6 @@ package common
 type MType string
 
 const (
-	Counter MType = "Counter"
+	Counter MType = "counter"
 	Gauge   MType = "gauge"
 )

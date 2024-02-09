@@ -10,13 +10,14 @@ ADDRESS=localhost:8080
 STORE_INTERVAL=300
 FILE_STORAGE_PATH=/tmp/metrics-db.json
 RESTORE=true
-DATABASE_DSN="postgres://postgres:password@postgres:5432/yp_metrics"
+DATABASE_DSN="postgres://postgres:password@172.22.0.2:5432/yp_metrics"
 KEY="key"
 ```
 
 ### get docker ip
 
 ```shell
+docker-compose up -d
 docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' yp-metrics-postgres
 ```
 
