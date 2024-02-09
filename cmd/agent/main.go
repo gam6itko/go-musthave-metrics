@@ -262,7 +262,7 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 		semaphore = sync2.NewSemaphore(_rateLimit)
 	}
 
-	for _, m := range metricList {
+	for _, oneMetric := range metricList {
 		g.Go(func() error {
 			semaphore.Acquire()
 			defer semaphore.Release()
@@ -275,11 +275,11 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 			// request send
 			var valueStr string
-			switch m.MType {
+			switch oneMetric.MType {
 			case string(common.Counter):
-				valueStr = strconv.FormatInt(*m.Delta, 10)
+				valueStr = strconv.FormatInt(*oneMetric.Delta, 10)
 			case string(common.Gauge):
-				valueStr = strconv.FormatFloat(*m.Value, 'f', 10, 64)
+				valueStr = strconv.FormatFloat(*oneMetric.Value, 'f', 10, 64)
 			default:
 				return errors.New("invalid MType")
 			}
@@ -289,8 +289,8 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 				fmt.Sprintf(
 					"http://%s/update/%s/%s/%s",
 					_serverAddr.String(),
-					m.MType,
-					m.ID,
+					oneMetric.MType,
+					oneMetric.ID,
 					valueStr,
 				),
 				requestBody,
