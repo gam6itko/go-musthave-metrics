@@ -18,13 +18,13 @@ func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 
 	io.WriteString(resp, "<h2>All metrics</h2>")
 
-	io.WriteString(resp, "<h2>Counter</h2>")
+	io.WriteString(resp, "<h2>counter</h2>")
 	counterAll, _ := MetricStorage.CounterAll(req.Context())
 	for name, val := range counterAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
 	}
 
-	io.WriteString(resp, "<h2>Gauge</h2>")
+	io.WriteString(resp, "<h2>gauge</h2>")
 	gaugeAll, _ := MetricStorage.GaugeAll(req.Context())
 	for name, val := range gaugeAll {
 		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))

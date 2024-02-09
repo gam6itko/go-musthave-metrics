@@ -102,7 +102,7 @@ func main() {
 	}
 
 	// on server.stop
-	if err := fileStorage.Save(); err != nil {
+	if err := fileStorage.Save(context.TODO()); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
 	fileStorage.Close()
@@ -150,7 +150,7 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 		go func() {
 			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
 			for range ticker.C {
-				fs.Save() // грязновато, по идее нужно делать какой-то bridge-saver
+				fs.Save(context.TODO()) // грязновато, по идее нужно делать какой-то bridge-saver
 			}
 		}()
 	}
