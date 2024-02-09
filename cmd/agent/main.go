@@ -262,7 +262,8 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 		semaphore = sync2.NewSemaphore(_rateLimit)
 	}
 
-	for _, oneMetric := range metricList {
+	for _, m := range metricList {
+		oneMetric := m
 		g.Go(func() error {
 			semaphore.Acquire()
 			defer semaphore.Release()
