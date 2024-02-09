@@ -6,10 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
+	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"math/rand"
 	"net/http"
@@ -25,6 +30,11 @@ type metrics struct {
 	runtime.MemStats
 	PollCount   int64
 	RandomValue float64
+	//gopsutil
+	TotalMemory uint64
+	FreeMemory  uint64
+	// Second
+	CPUUtilization []float64
 }
 
 var _serverAddr commonFlags.NetAddress
@@ -32,6 +42,7 @@ var _stat metrics
 var _reportInterval uint
 var _pollInterval uint
 var _key string
+var _rateLimit uint
 
 func init() {
 	_serverAddr = commonFlags.NewNetAddr("localhost", 8080)
@@ -41,11 +52,13 @@ func init() {
 	reportIntervalF := flag.Uint("r", 10, "Report interval")
 	pollIntervalF := flag.Uint("p", 2, "Poll interval")
 	keyF := flag.String("k", "", "Encryption key")
+	rateLimitF := flag.Uint("l", 0, "Request rate limit")
 	flag.Parse()
 
 	_reportInterval = *reportIntervalF
 	_pollInterval = *pollIntervalF
 	_key = *keyF
+	_rateLimit = *rateLimitF
 
 	// read from env
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
@@ -66,6 +79,11 @@ func init() {
 	if envVal := os.Getenv("KEY"); envVal != "" {
 		_key = envVal
 	}
+	if envVal := os.Getenv("RATE_LIMIT"); envVal != "" {
+		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
+			_rateLimit = uint(val)
+		}
+	}
 
 	_stat = metrics{
 		PollCount: 0,
@@ -85,6 +103,7 @@ func main() {
 func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	wg.Add(1)
 
+	// runtime
 	go func() {
 		defer wg.Done()
 
@@ -94,8 +113,31 @@ func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				defer mux.Unlock()
 
 				runtime.ReadMemStats(&_stat.MemStats)
+				// custom
 				_stat.PollCount++
 				_stat.RandomValue = rand.Float64()
+			}()
+			time.Sleep(time.Duration(_pollInterval) * time.Second)
+		}
+	}()
+
+	// gopsutil
+	go func() {
+		defer wg.Done()
+
+		for {
+			func() {
+				mux.Lock()
+				defer mux.Unlock()
+
+				v, _ := mem.VirtualMemory()
+				_stat.TotalMemory = v.Total
+				_stat.FreeMemory = v.Free
+				util, err := cpu.Percent(time.Second, true)
+				if err != nil {
+					log.Printf("cpu error: %s", err)
+				}
+				_stat.CPUUtilization = util
 			}()
 			time.Sleep(time.Duration(_pollInterval) * time.Second)
 		}
@@ -135,6 +177,9 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 		"TotalAlloc",
 		// custom
 		"RandomValue",
+		//gopsutils
+		"TotalMemory",
+		"FreeMemory",
 	}
 
 	go func() {
@@ -155,40 +200,51 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 
 				refValue := reflect.ValueOf(_stat)
 
-				metricList := make([]common.Metrics, 0, len(GaugeToSend)+2)
+				metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
 
 				for _, gName := range GaugeToSend {
 					f := reflect.Indirect(refValue).FieldByName(gName)
 
-					m := common.Metrics{
+					m := &common.Metrics{
 						ID:    gName,
 						MType: "gauge",
 					}
 					if f.CanInt() {
-						m.ValueForRef = float64(f.Int())
+						m.Value = common.Float64Ref(float64(f.Int()))
 					} else if f.CanUint() {
-						m.ValueForRef = float64(f.Uint())
+						m.Value = common.Float64Ref(float64(f.Uint()))
 					} else if f.CanFloat() {
-						m.ValueForRef = f.Float()
+						m.Value = common.Float64Ref(f.Float())
 					} else {
 						log.Printf("failed to get gauge value `%s`", gName)
 						continue
 					}
 
-					m.Value = &m.ValueForRef
-
 					metricList = append(metricList, m)
 				}
 
-				m := common.Metrics{
-					ID:          "PollCount",
-					MType:       "counter",
-					DeltaForRef: _stat.PollCount,
-				}
-				m.Delta = &m.DeltaForRef
-				metricList = append(metricList, m)
+				metricList = append(
+					metricList,
+					&common.Metrics{
+						ID:    "PollCount",
+						MType: "counter",
+						Delta: common.Int64Ref(_stat.PollCount),
+					},
+				)
 
-				if err := sendMetrics(&httpClient, &metricList); err != nil {
+				//gopsutils cpu
+				for i, val := range _stat.CPUUtilization {
+					metricList = append(
+						metricList,
+						&common.Metrics{
+							ID:    fmt.Sprintf("CPUutilization%d", i),
+							MType: "gauge",
+							Value: common.Float64Ref(val),
+						},
+					)
+				}
+
+				if err := sendMetrics(&httpClient, metricList); err != nil {
 					log.Printf("errors making http request: %s\n", err)
 				}
 			}()
@@ -196,43 +252,77 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	}()
 }
 
-func sendMetrics(httpClient *http.Client, metricList *[]common.Metrics) error {
-	requestBody := bytes.NewBuffer([]byte{})
-	encoder := json.NewEncoder(requestBody)
-	if err := encoder.Encode(metricList); err != nil {
-		return err
+// Для инкремента 15 мы будем отправлять по одной метрике в разных горутино-запросах.
+func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
+	g := new(errgroup.Group)
+
+	var semaphore sync2.ISemaphore
+	semaphore = &sync2.NullSemaphore{}
+	if _rateLimit > 0 {
+		semaphore = sync2.NewSemaphore(_rateLimit)
 	}
 
-	// request send
-	req, err := http.NewRequest(
-		http.MethodPost,
-		fmt.Sprintf("http://%s/updates/", _serverAddr.String()),
-		requestBody,
-	)
-	if err != nil {
-		return err
+	for _, m := range metricList {
+		g.Go(func() error {
+			semaphore.Acquire()
+			defer semaphore.Release()
+
+			requestBody := bytes.NewBuffer([]byte{})
+			encoder := json.NewEncoder(requestBody)
+			if err := encoder.Encode(metricList); err != nil {
+				return err
+			}
+
+			// request send
+			var valueStr string
+			switch m.MType {
+			case string(common.Counter):
+				valueStr = strconv.FormatInt(*m.Delta, 10)
+			case string(common.Gauge):
+				valueStr = strconv.FormatFloat(*m.Value, 'f', 10, 64)
+			default:
+				return errors.New("invalid MType")
+			}
+
+			req, err := http.NewRequest(
+				http.MethodPost,
+				fmt.Sprintf(
+					"http://%s/update/%s/%s/%s",
+					_serverAddr.String(),
+					m.MType,
+					m.ID,
+					valueStr,
+				),
+				requestBody,
+			)
+			if err != nil {
+				return err
+			}
+
+			req.Header.Set("Content-Type", "application/json")
+
+			if _key != "" {
+				// подписываем алгоритмом HMAC, используя SHA-256
+				h := hmac.New(sha256.New, []byte(_key))
+				if _, err := h.Write(requestBody.Bytes()); err != nil {
+					return err
+				}
+				dst := h.Sum(nil)
+
+				base64Enc := base64.StdEncoding.EncodeToString(dst)
+				req.Header.Set("HashSHA256", base64Enc)
+			}
+
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				return err
+			}
+
+			resp.Body.Close()
+
+			return nil
+		})
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-
-	if _key != "" {
-		// подписываем алгоритмом HMAC, используя SHA-256
-		h := hmac.New(sha256.New, []byte(_key))
-		if _, err := h.Write(requestBody.Bytes()); err != nil {
-			return err
-		}
-		dst := h.Sum(nil)
-
-		base64Enc := base64.StdEncoding.EncodeToString(dst)
-		req.Header.Set("HashSHA256", base64Enc)
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	resp.Body.Close()
-
-	return nil
+	return g.Wait()
 }

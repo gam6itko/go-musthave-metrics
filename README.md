@@ -27,6 +27,7 @@ ADDRESS=localhost:8080
 REPORT_INTERVAL=10
 POLL_INTERVAL=2
 KEY="abc"
+RATE_LIMIT=4
 ```
 
 # sprint
