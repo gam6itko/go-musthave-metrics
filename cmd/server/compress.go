@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
 )
 
 var compressEnabledForTypeList = []string{
@@ -41,6 +42,10 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 
 func (c *compressWriter) Write(p []byte) (int, error) {
 	contentType := c.w.Header().Get("Content-Type")
+	if strings.Contains(contentType, ";") {
+		parts := strings.Split(contentType, ";")
+		contentType = strings.TrimSpace(parts[0])
+	}
 	canCompress := slices.Contains(compressEnabledForTypeList, contentType)
 	if canCompress {
 		c.w.Header().Set("Content-Encoding", "gzip")
