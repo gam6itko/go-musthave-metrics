@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
   postgres:
-    container_name: yp-metrics-postgres
+    container_name: yp-musthave-metrics-postgres
     image: postgres:13
     environment:
       POSTGRES_DB: yp_metrics
