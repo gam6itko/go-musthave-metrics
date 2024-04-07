@@ -70,19 +70,29 @@ Content-Type: application/json
 
 ### iter12
 
-server
+Сохраните профиль потребления памяти.
+
+Запустим 2 сервиса и дадим им чуток поработать.
+
+#### server
+
 ```shell
 mkdir -p ./profiles/server
 mkdir -p ./profiles/client
-curl http://localhost:8080/debug/pprof/profile > ./profiles/server/base.out
-# go tool pprof -http=":9090" -seconds=30 http://localhost:8080/debug/pprof/profile
-go tool pprof -http=":9090" -seconds=30 ./profiles/server/base.out
+curl http://localhost:8080/debug/pprof/allocs > ./profiles/server/allocs.base.pprof
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8080/debug/pprof/allocs
+go tool pprof -http=":9090" -seconds=30 ./profiles/server/allocs.base.pprof
 ```
 
-client
+Тут видно что больше всего памяти потребляет compress/flate.NewWriter.
+
+#### client
+
 ```shell
 mkdir -p ./profiles/client
-curl http://localhost:8081/debug/pprof/profile > ./profiles/client/base.out
-# go tool pprof -http=":9090" -seconds=30 http://localhost:8081/debug/pprof/profile
-go tool pprof -http=":9090" -seconds=30 ./profiles/client/base.out
+curl http://localhost:8081/debug/pprof/allocs > ./profiles/client/allocs.base.pprof
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8081/debug/pprof/allocs
+go tool pprof -http=":9090" -seconds=30 ./profiles/client/allocs.base.pprof
 ```
+
+Тут видно что больше всего памяти потребляет compress/flate.NewWriter.
