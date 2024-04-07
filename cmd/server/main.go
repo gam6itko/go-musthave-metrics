@@ -11,9 +11,11 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/retrible"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -115,6 +117,8 @@ func newRouter() chi.Router {
 	r.Post("/updates/", postUpdateBatchJSONHandler)
 	// database
 	r.Get("/ping", getPingHandler)
+
+	r.Mount("/debug", middleware.Profiler())
 
 	return r
 }

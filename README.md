@@ -67,3 +67,22 @@ Content-Type: application/json
   }
 ]
 ```
+
+### iter12
+
+server
+```shell
+mkdir -p ./profiles/server
+mkdir -p ./profiles/client
+curl http://localhost:8080/debug/pprof/profile > ./profiles/server/base.out
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8080/debug/pprof/profile
+go tool pprof -http=":9090" -seconds=30 ./profiles/server/base.out
+```
+
+client
+```shell
+mkdir -p ./profiles/client
+curl http://localhost:8081/debug/pprof/profile > ./profiles/client/base.out
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8081/debug/pprof/profile
+go tool pprof -http=":9090" -seconds=30 ./profiles/client/base.out
+```
