@@ -68,7 +68,7 @@ Content-Type: application/json
 ]
 ```
 
-### iter12
+### iter16
 
 Сохраните профиль потребления памяти.
 
@@ -96,3 +96,11 @@ go tool pprof -http=":9090" -seconds=30 ./profiles/client/allocs.base.pprof
 ```
 
 Тут видно что больше всего памяти потребляет compress/flate.NewWriter.
+
+
+### iter18
+
+```shell
+swag init --dir=./cmd/agent --output ./swagger/agent
+swag init --dir=./cmd/server --output ./swagger/server
+```

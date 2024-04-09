@@ -26,6 +26,13 @@ import (
 var MetricStorage storage.Storage
 var Database *sql.DB
 
+// @Title Get All Metrics
+// @Description Накопление и отображение метрик.
+// @Version 1.0
+// @Contact.email gam6itko@yandex.ru
+// @BasePath /
+// @Host localhost:8080
+
 func main() {
 	var fsConfig = &file.Config{} //create from flags
 	var bindAddr string

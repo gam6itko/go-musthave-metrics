@@ -1,0 +1,60 @@
+basePath: /
+host: localhost:8080
+info:
+  contact:
+    email: gam6itko@yandex.ru
+  description: Накопление и отображение метрик.
+  title: Get All Metrics
+  version: "1.0"
+paths:
+  /:
+    get:
+      operationId: GetAllMetrics
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: Метрики
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+      summary: Получить все накопленные метрики в формате HTML.
+      tags:
+      - Info
+  /update/{type}/{name}/{value}:
+    get:
+      operationId: UpdateOne
+      parameters:
+      - description: Metric typ [counter, gauge]
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Metric name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Value
+        in: path
+        name: value
+        required: true
+        type: number
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Метрика сохранена
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            type: string
+      summary: Сохранить одну метрику.
+      tags:
+      - Store
+swagger: "2.0"

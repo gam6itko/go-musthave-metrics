@@ -13,6 +13,14 @@ import (
 	"strings"
 )
 
+// Health godoc
+// @Tags Info
+// @Summary Получить все накопленные метрики в формате HTML.
+// @ID GetAllMetrics
+// @Produce text/html
+// @Success 200 {string} string "Метрики"
+// @Failure 500 {string} string "Внутренняя ошибка"
+// @Router / [get]
 func getAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 
@@ -61,6 +69,18 @@ func getValueHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Health godoc
+// @Tags Store
+// @Summary Сохранить одну метрику.
+// @ID UpdateOne
+// @Produce text/plain
+// @Param type path string true "Metric typ [counter, gauge]"
+// @Param name path string true "Metric name"
+// @Param value path float64 true "Value"
+// @Success 200 {string} string "Метрика сохранена"
+// @Failure 400 {string} string "Неверный формат данных"
+// @Failure 500 {string} string "Внутренняя ошибка"
+// @Router /update/{type}/{name}/{value} [get]
 func postUpdateHandler(resp http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	value := chi.URLParam(req, "value")
