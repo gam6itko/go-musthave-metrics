@@ -2,11 +2,36 @@ package controller
 
 import (
 	"bytes"
+	"context"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestMetricsController(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	storage := memory.NewStorage()
+	ctrl := MetricsController{
+		storage,
+		logger,
+	}
+
+	t.Run("PostUpdate", func(t *testing.T) {
+		ctx := context.WithValue(context.TODO(), "type", "gauge")
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/update/gauge/foo/19.17", nil)
+		r.WithContext(ctx)
+		ctrl.PostUpdate(w, r)
+		require.Equal(t, 200, w.Code)
+
+		g, err := storage.GaugeGet(nil, "foo")
+		require.NoError(t, err)
+		require.Equal(t, 19.17, g)
+	})
+}
 
 // Если несколько раз вызвать метод, то ссылки должны быть на разные области памяти.
 func Test_decodeJsonRequest_metricNotSameRef(t *testing.T) {
