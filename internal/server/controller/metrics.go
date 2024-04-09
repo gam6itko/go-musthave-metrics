@@ -195,9 +195,9 @@ func (ths MetricsController) PostUpdateJSONHandler(resp http.ResponseWriter, req
 
 	resp.WriteHeader(http.StatusOK)
 	_, err = resp.Write([]byte("OK"))
-	//if err != nil {
-	//	ths.logger.Error(err.Error())
-	//}
+	if err != nil {
+		ths.logger.Error(err.Error())
+	}
 }
 
 // PostUpdateBatchJSONHandler обновляет несколько метрик за один запроса.
