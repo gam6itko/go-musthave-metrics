@@ -25,7 +25,7 @@ func NewMetricsController(storage storage.IStorage, logger *zap.Logger) *Metrics
 	return &MetricsController{storage, logger}
 }
 
-// GetAllMetricsHandler возвращает все накопленные метрики в формате HTML
+// GetAllMetricsHandler возвращает все накопленные метрики в формате HTML.
 //
 // Health godoc
 // @Tags Info
@@ -53,7 +53,7 @@ func (ths MetricsController) GetAllMetricsHandler(resp http.ResponseWriter, req 
 	}
 }
 
-// GetValue возвращает одно значение.
+// GetValue возвращает одно значение метрики.
 func (ths MetricsController) GetValue(resp http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	if name == "" {

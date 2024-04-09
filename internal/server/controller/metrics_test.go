@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"net/http"
@@ -19,17 +20,77 @@ func TestMetricsController(t *testing.T) {
 		logger,
 	}
 
-	t.Run("PostUpdate", func(t *testing.T) {
-		ctx := context.WithValue(context.TODO(), "type", "gauge")
+	t.Run("PostUpdate counter 400", func(t *testing.T) {
+		// for chi
+		ctx := context.Background()
+		ctx = context.WithValue(ctx,
+			chi.RouteCtxKey,
+			&chi.Context{
+				URLParams: chi.RouteParams{
+					Keys:   []string{"type", "name", "value"},
+					Values: []string{"counter", "counter1", "bad-counter-value"},
+				},
+			},
+		)
+
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/update/gauge/foo/19.17", nil)
-		r.WithContext(ctx)
-		ctrl.PostUpdate(w, r)
+		// url-path в данном тесте ни на что не влияет
+		r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/bad-counter-value", nil)
+		ctrl.PostUpdate(w, r.WithContext(ctx))
+		require.Equal(t, 400, w.Code)
+
+		_, err := storage.CounterGet(nil, "counter1")
+		require.Error(t, err)
+		require.EqualError(t, err, "not found")
+	})
+
+	t.Run("PostUpdate counter 200", func(t *testing.T) {
+		// for chi
+		ctx := context.Background()
+		ctx = context.WithValue(ctx,
+			chi.RouteCtxKey,
+			&chi.Context{
+				URLParams: chi.RouteParams{
+					Keys:   []string{"type", "name", "value"},
+					Values: []string{"counter", "counter1", "1"},
+				},
+			},
+		)
+
+		w := httptest.NewRecorder()
+		// url-path в данном тесте ни на что не влияет
+		r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/1", nil)
+		ctrl.PostUpdate(w, r.WithContext(ctx))
 		require.Equal(t, 200, w.Code)
 
-		g, err := storage.GaugeGet(nil, "foo")
+		c, err := storage.CounterGet(nil, "counter1")
+		require.NoError(t, err)
+		require.Equal(t, int64(1), c)
+		require.Equal(t, "OK", w.Body.String())
+	})
+
+	t.Run("PostUpdate gauge 200", func(t *testing.T) {
+		// for chi
+		ctx := context.Background()
+		ctx = context.WithValue(ctx,
+			chi.RouteCtxKey,
+			&chi.Context{
+				URLParams: chi.RouteParams{
+					Keys:   []string{"type", "name", "value"},
+					Values: []string{"gauge", "gauge1", "19.17"},
+				},
+			},
+		)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/update/gauge1/foo/19.17", nil)
+		ctrl.PostUpdate(w, r.WithContext(ctx))
+		require.Equal(t, 200, w.Code)
+
+		g, err := storage.GaugeGet(nil, "gauge1")
 		require.NoError(t, err)
 		require.Equal(t, 19.17, g)
+		require.Equal(t, "OK", w.Body.String())
 	})
 }
 
