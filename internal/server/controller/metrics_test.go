@@ -40,7 +40,7 @@ func TestMetricsController(t *testing.T) {
 			ctrl.PostUpdate(w, r.WithContext(ctx))
 			require.Equal(t, 400, w.Code)
 
-			_, err := storage.CounterGet(nil, "counter1")
+			_, err := storage.CounterGet(context.TODO(), "counter1")
 			require.Error(t, err)
 			require.EqualError(t, err, "not found")
 		})
@@ -64,7 +64,7 @@ func TestMetricsController(t *testing.T) {
 			ctrl.PostUpdate(w, r.WithContext(ctx))
 			require.Equal(t, 200, w.Code)
 
-			c, err := storage.CounterGet(nil, "counter1")
+			c, err := storage.CounterGet(context.TODO(), "counter1")
 			require.NoError(t, err)
 			require.Equal(t, int64(1), c)
 			require.Equal(t, "OK", w.Body.String())
@@ -89,7 +89,7 @@ func TestMetricsController(t *testing.T) {
 			ctrl.PostUpdate(w, r.WithContext(ctx))
 			require.Equal(t, 400, w.Code)
 
-			_, err := storage.GaugeGet(nil, "gauge1")
+			_, err := storage.GaugeGet(context.TODO(), "gauge1")
 			require.Error(t, err)
 			require.EqualError(t, err, "not found")
 		})
@@ -112,7 +112,7 @@ func TestMetricsController(t *testing.T) {
 			ctrl.PostUpdate(w, r.WithContext(ctx))
 			require.Equal(t, 200, w.Code)
 
-			g, err := storage.GaugeGet(nil, "gauge1")
+			g, err := storage.GaugeGet(context.TODO(), "gauge1")
 			require.NoError(t, err)
 			require.Equal(t, 19.17, g)
 			require.Equal(t, "OK", w.Body.String())
@@ -133,7 +133,7 @@ func TestMetricsController(t *testing.T) {
 			require.Equal(t, 200, w.Code)
 			require.Equal(t, "OK", w.Body.String())
 
-			c, err := storage.CounterGet(nil, "counter2")
+			c, err := storage.CounterGet(context.TODO(), "counter2")
 			require.NoError(t, err)
 			require.Equal(t, int64(2), c)
 		})
@@ -151,7 +151,7 @@ func TestMetricsController(t *testing.T) {
 			require.Equal(t, 200, w.Code)
 			require.Equal(t, "OK", w.Body.String())
 
-			g, err := storage.GaugeGet(nil, "gauge2")
+			g, err := storage.GaugeGet(context.TODO(), "gauge2")
 			require.NoError(t, err)
 			require.Equal(t, float64(19.22), g)
 		})
