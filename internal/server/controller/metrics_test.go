@@ -20,137 +20,245 @@ func TestMetricsController(t *testing.T) {
 		logger,
 	}
 
-	t.Run("PostUpdate counter 400", func(t *testing.T) {
-		// for chi
-		ctx := context.Background()
-		ctx = context.WithValue(ctx,
-			chi.RouteCtxKey,
-			&chi.Context{
-				URLParams: chi.RouteParams{
-					Keys:   []string{"type", "name", "value"},
-					Values: []string{"counter", "counter1", "bad-counter-value"},
+	t.Run("PostUpdate", func(t *testing.T) {
+		t.Run("counter 400", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name", "value"},
+						Values: []string{"counter", "counter1", "bad-counter-value"},
+					},
 				},
-			},
-		)
+			)
 
-		w := httptest.NewRecorder()
-		// url-path в данном тесте ни на что не влияет
-		r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/bad-counter-value", nil)
-		ctrl.PostUpdate(w, r.WithContext(ctx))
-		require.Equal(t, 400, w.Code)
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/bad-counter-value", nil)
+			ctrl.PostUpdate(w, r.WithContext(ctx))
+			require.Equal(t, 400, w.Code)
 
-		_, err := storage.CounterGet(nil, "counter1")
-		require.Error(t, err)
-		require.EqualError(t, err, "not found")
+			_, err := storage.CounterGet(nil, "counter1")
+			require.Error(t, err)
+			require.EqualError(t, err, "not found")
+		})
+
+		t.Run("counter 200", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name", "value"},
+						Values: []string{"counter", "counter1", "1"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/1", nil)
+			ctrl.PostUpdate(w, r.WithContext(ctx))
+			require.Equal(t, 200, w.Code)
+
+			c, err := storage.CounterGet(nil, "counter1")
+			require.NoError(t, err)
+			require.Equal(t, int64(1), c)
+			require.Equal(t, "OK", w.Body.String())
+		})
+
+		t.Run("counter 400", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name", "value"},
+						Values: []string{"gauge", "gauge1", "bad-gauge-value"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/update/gauge/gauge1/bad-gauge-value", nil)
+			ctrl.PostUpdate(w, r.WithContext(ctx))
+			require.Equal(t, 400, w.Code)
+
+			_, err := storage.GaugeGet(nil, "gauge1")
+			require.Error(t, err)
+			require.EqualError(t, err, "not found")
+		})
+
+		t.Run("gauge 200", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name", "value"},
+						Values: []string{"gauge", "gauge1", "19.17"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, "/update/gauge1/foo/19.17", nil)
+			ctrl.PostUpdate(w, r.WithContext(ctx))
+			require.Equal(t, 200, w.Code)
+
+			g, err := storage.GaugeGet(nil, "gauge1")
+			require.NoError(t, err)
+			require.Equal(t, 19.17, g)
+			require.Equal(t, "OK", w.Body.String())
+		})
 	})
 
-	t.Run("PostUpdate counter 200", func(t *testing.T) {
-		// for chi
-		ctx := context.Background()
-		ctx = context.WithValue(ctx,
-			chi.RouteCtxKey,
-			&chi.Context{
-				URLParams: chi.RouteParams{
-					Keys:   []string{"type", "name", "value"},
-					Values: []string{"counter", "counter1", "1"},
-				},
-			},
-		)
-
-		w := httptest.NewRecorder()
-		// url-path в данном тесте ни на что не влияет
-		r := httptest.NewRequest(http.MethodPost, "/update/counter/counter1/1", nil)
-		ctrl.PostUpdate(w, r.WithContext(ctx))
-		require.Equal(t, 200, w.Code)
-
-		c, err := storage.CounterGet(nil, "counter1")
-		require.NoError(t, err)
-		require.Equal(t, int64(1), c)
-		require.Equal(t, "OK", w.Body.String())
-	})
-
-	t.Run("PostUpdate counter 400", func(t *testing.T) {
-		// for chi
-		ctx := context.Background()
-		ctx = context.WithValue(ctx,
-			chi.RouteCtxKey,
-			&chi.Context{
-				URLParams: chi.RouteParams{
-					Keys:   []string{"type", "name", "value"},
-					Values: []string{"gauge", "gauge1", "bad-gauge-value"},
-				},
-			},
-		)
-
-		w := httptest.NewRecorder()
-		// url-path в данном тесте ни на что не влияет
-		r := httptest.NewRequest(http.MethodPost, "/update/gauge/gauge1/bad-gauge-value", nil)
-		ctrl.PostUpdate(w, r.WithContext(ctx))
-		require.Equal(t, 400, w.Code)
-
-		_, err := storage.GaugeGet(nil, "gauge1")
-		require.Error(t, err)
-		require.EqualError(t, err, "not found")
-	})
-
-	t.Run("PostUpdate gauge 200", func(t *testing.T) {
-		// for chi
-		ctx := context.Background()
-		ctx = context.WithValue(ctx,
-			chi.RouteCtxKey,
-			&chi.Context{
-				URLParams: chi.RouteParams{
-					Keys:   []string{"type", "name", "value"},
-					Values: []string{"gauge", "gauge1", "19.17"},
-				},
-			},
-		)
-
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/update/gauge1/foo/19.17", nil)
-		ctrl.PostUpdate(w, r.WithContext(ctx))
-		require.Equal(t, 200, w.Code)
-
-		g, err := storage.GaugeGet(nil, "gauge1")
-		require.NoError(t, err)
-		require.Equal(t, 19.17, g)
-		require.Equal(t, "OK", w.Body.String())
-	})
-
-	t.Run("PostUpdateJSONHandler counter 200", func(t *testing.T) {
-		json := `{
+	t.Run("PostUpdateJSONHandler", func(t *testing.T) {
+		t.Run("counter 200", func(t *testing.T) {
+			json := `{
 	"id": "counter2",
 	"type": "counter",
 	"delta": 2
 }`
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
-		r.Header.Set("Content-Type", "application/json")
-		ctrl.PostUpdateJSONHandler(w, r)
-		require.Equal(t, 200, w.Code)
-		require.Equal(t, "OK", w.Body.String())
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
+			r.Header.Set("Content-Type", "application/json")
+			ctrl.PostUpdateJSONHandler(w, r)
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, "OK", w.Body.String())
 
-		c, err := storage.CounterGet(nil, "counter2")
-		require.NoError(t, err)
-		require.Equal(t, int64(2), c)
-	})
+			c, err := storage.CounterGet(nil, "counter2")
+			require.NoError(t, err)
+			require.Equal(t, int64(2), c)
+		})
 
-	t.Run("PostUpdateJSONHandler gauge 200", func(t *testing.T) {
-		json := `{
+		t.Run("gauge 200", func(t *testing.T) {
+			json := `{
 	"id": "gauge2",
 	"type": "gauge",
 	"value": 19.22
 }`
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
-		r.Header.Set("Content-Type", "application/json")
-		ctrl.PostUpdateJSONHandler(w, r)
-		require.Equal(t, 200, w.Code)
-		require.Equal(t, "OK", w.Body.String())
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
+			r.Header.Set("Content-Type", "application/json")
+			ctrl.PostUpdateJSONHandler(w, r)
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, "OK", w.Body.String())
 
-		g, err := storage.GaugeGet(nil, "gauge2")
-		require.NoError(t, err)
-		require.Equal(t, float64(19.22), g)
+			g, err := storage.GaugeGet(nil, "gauge2")
+			require.NoError(t, err)
+			require.Equal(t, float64(19.22), g)
+		})
+	})
+
+	t.Run("GetValue", func(t *testing.T) {
+		t.Run("wrong type - 404", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name"},
+						Values: []string{"foo", "foo777"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/value/foo/foo777", nil)
+			ctrl.GetValue(w, r.WithContext(ctx))
+			require.Equal(t, 404, w.Code)
+		})
+
+		t.Run("counter2 - 200", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name"},
+						Values: []string{"counter", "counter2"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/value/counter/counter2", nil)
+			ctrl.GetValue(w, r.WithContext(ctx))
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, "2", w.Body.String())
+		})
+
+		t.Run("counter not found", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name"},
+						Values: []string{"counter", "counter666"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/value/counter/counter666", nil)
+			ctrl.GetValue(w, r.WithContext(ctx))
+			require.Equal(t, 404, w.Code)
+		})
+
+		t.Run("gauge2 - 200", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name"},
+						Values: []string{"gauge", "gauge2"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/value/gauge/gauge2", nil)
+			ctrl.GetValue(w, r.WithContext(ctx))
+			require.Equal(t, 200, w.Code)
+			require.Equal(t, "19.22", w.Body.String())
+		})
+
+		t.Run("gauge not found", func(t *testing.T) {
+			// for chi
+			ctx := context.Background()
+			ctx = context.WithValue(ctx,
+				chi.RouteCtxKey,
+				&chi.Context{
+					URLParams: chi.RouteParams{
+						Keys:   []string{"type", "name"},
+						Values: []string{"gauge", "gauge666"},
+					},
+				},
+			)
+
+			w := httptest.NewRecorder()
+			// url-path в данном тесте ни на что не влияет
+			r := httptest.NewRequest(http.MethodPost, "/value/gauge/gauge666", nil)
+			ctrl.GetValue(w, r.WithContext(ctx))
+			require.Equal(t, 404, w.Code)
+		})
 	})
 }
 
