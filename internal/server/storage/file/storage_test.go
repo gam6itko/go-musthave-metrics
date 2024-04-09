@@ -24,14 +24,14 @@ func Test_Storage_SaveLoad(t *testing.T) {
 		require.NoError(t, err)
 		err = s.GaugeSet(ctx, "gauge1", 2.2)
 		require.NoError(t, err)
-		err = s.Save()
+		err = s.Save(context.TODO())
 		require.NoError(t, err)
 
 		b, err := os.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(
 			t,
-			`{"Counter":{"counter1":1},"Gauge":{"gauge1":2.2}}`,
+			`{"counter":{"counter1":1},"gauge":{"gauge1":2.2}}`,
 			string(b),
 		)
 		err = s.Close()
@@ -57,7 +57,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(
 			t,
-			`{"Counter":{"counter1":3},"Gauge":{"gauge1":4.4}}`,
+			`{"counter":{"counter1":3},"gauge":{"gauge1":4.4}}`,
 			string(b),
 		)
 
@@ -79,7 +79,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 
 		s, err := NewStorage(ms, filePath, false)
 		require.NoError(t, err)
-		err = s.Save()
+		err = s.Save(context.TODO())
 		require.NoError(t, err)
 
 		ms2 := memory.NewStorage()

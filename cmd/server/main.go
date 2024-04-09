@@ -28,6 +28,7 @@ import (
 // todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.IStorage
 var Database *sql.DB
+var _key string
 
 // @Title Get All Metrics
 // @Description Накопление и отображение метрик.
@@ -44,7 +45,9 @@ func main() {
 	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
 		bindAddr = envVal
 	}
-
+	if envVal, exists := os.LookupEnv("KEY"); exists {
+		_key = envVal
+	}
 	//init db
 	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
 		dbDsn = envVal
@@ -52,6 +55,7 @@ func main() {
 
 	bindAddrTmp := flag.String("a", "", "Net address host:port")
 	dbDsnTmp := flag.String("d", "", "Database DSN")
+	keyTmp := flag.String("k", "", "Hash key")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
@@ -66,10 +70,14 @@ func main() {
 			bindAddr = "localhost:8080"
 		}
 	}
-
 	// database open
 	if *dbDsnTmp != "" {
 		dbDsn = *dbDsnTmp
+	}
+	if _key == "" {
+		if *keyTmp != "" {
+			_key = *keyTmp
+		}
 	}
 
 	tmpDB, err := sql.Open("pgx", dbDsn)
@@ -106,7 +114,7 @@ func main() {
 	}
 
 	// on server.stop
-	if err := fileStorage.Save(); err != nil {
+	if err := fileStorage.Save(context.TODO()); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
 	fileStorage.Close()
@@ -116,6 +124,7 @@ func newRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(requestLoggingMiddleware)
+	r.Use(hashCheckMiddleware)
 	r.Use(compressMiddleware)
 
 	ctrl := controller.NewMetricsController(MetricStorage, Log)
@@ -156,7 +165,7 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 		go func() {
 			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
 			for range ticker.C {
-				fs.Save() // грязновато, по идее нужно делать какой-то bridge-saver
+				fs.Save(context.TODO()) // грязновато, по идее нужно делать какой-то bridge-saver
 			}
 		}()
 	}
