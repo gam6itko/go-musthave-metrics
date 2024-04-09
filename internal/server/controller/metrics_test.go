@@ -69,6 +69,30 @@ func TestMetricsController(t *testing.T) {
 		require.Equal(t, "OK", w.Body.String())
 	})
 
+	t.Run("PostUpdate counter 400", func(t *testing.T) {
+		// for chi
+		ctx := context.Background()
+		ctx = context.WithValue(ctx,
+			chi.RouteCtxKey,
+			&chi.Context{
+				URLParams: chi.RouteParams{
+					Keys:   []string{"type", "name", "value"},
+					Values: []string{"gauge", "gauge1", "bad-gauge-value"},
+				},
+			},
+		)
+
+		w := httptest.NewRecorder()
+		// url-path в данном тесте ни на что не влияет
+		r := httptest.NewRequest(http.MethodPost, "/update/gauge/gauge1/bad-gauge-value", nil)
+		ctrl.PostUpdate(w, r.WithContext(ctx))
+		require.Equal(t, 400, w.Code)
+
+		_, err := storage.GaugeGet(nil, "gauge1")
+		require.Error(t, err)
+		require.EqualError(t, err, "not found")
+	})
+
 	t.Run("PostUpdate gauge 200", func(t *testing.T) {
 		// for chi
 		ctx := context.Background()
@@ -91,6 +115,42 @@ func TestMetricsController(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 19.17, g)
 		require.Equal(t, "OK", w.Body.String())
+	})
+
+	t.Run("PostUpdateJSONHandler counter 200", func(t *testing.T) {
+		json := `{
+	"id": "counter2",
+	"type": "counter",
+	"delta": 2
+}`
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
+		r.Header.Set("Content-Type", "application/json")
+		ctrl.PostUpdateJSONHandler(w, r)
+		require.Equal(t, 200, w.Code)
+		require.Equal(t, "OK", w.Body.String())
+
+		c, err := storage.CounterGet(nil, "counter2")
+		require.NoError(t, err)
+		require.Equal(t, int64(2), c)
+	})
+
+	t.Run("PostUpdateJSONHandler gauge 200", func(t *testing.T) {
+		json := `{
+	"id": "gauge2",
+	"type": "gauge",
+	"value": 19.22
+}`
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer([]byte(json)))
+		r.Header.Set("Content-Type", "application/json")
+		ctrl.PostUpdateJSONHandler(w, r)
+		require.Equal(t, 200, w.Code)
+		require.Equal(t, "OK", w.Body.String())
+
+		g, err := storage.GaugeGet(nil, "gauge2")
+		require.NoError(t, err)
+		require.Equal(t, float64(19.22), g)
 	})
 }
 

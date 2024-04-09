@@ -187,17 +187,17 @@ func (ths MetricsController) PostUpdateJSONHandler(resp http.ResponseWriter, req
 		return
 	}
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	//b, err := json.Marshal(resp)
+	//if err != nil {
+	//	httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
+	//	return
+	//}
 
 	resp.WriteHeader(http.StatusOK)
-	_, err = resp.Write(b)
-	if err != nil {
-		ths.logger.Error(err.Error())
-	}
+	_, err = resp.Write([]byte("OK"))
+	//if err != nil {
+	//	ths.logger.Error(err.Error())
+	//}
 }
 
 // PostUpdateBatchJSONHandler обновляет несколько метрик за один запроса.
