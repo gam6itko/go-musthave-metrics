@@ -28,11 +28,11 @@ func (ths Error) Unwrap() error {
 }
 
 type Storage struct {
-	inner   storage.Storage
+	inner   storage.IStorage
 	tryEach []time.Duration
 }
 
-func NewStorage(inner storage.Storage, tryEach []time.Duration) *Storage {
+func NewStorage(inner storage.IStorage, tryEach []time.Duration) *Storage {
 	tryEach = append(tryEach, time.Nanosecond)
 	return &Storage{
 		inner,

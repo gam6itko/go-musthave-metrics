@@ -11,11 +11,11 @@ import (
 
 // Storage decorator on memory.Storage
 type Storage struct {
-	inner storage.Storage
+	inner storage.IStorage
 	file  *os.File
 }
 
-func NewStorage(inner storage.Storage, filepath string, ioSync bool) (*Storage, error) {
+func NewStorage(inner storage.IStorage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if ioSync {
 		flag |= os.O_SYNC

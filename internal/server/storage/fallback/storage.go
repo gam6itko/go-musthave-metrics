@@ -6,11 +6,11 @@ import (
 )
 
 type Storage struct {
-	inner    storage.Storage
-	fallback storage.Storage
+	inner    storage.IStorage
+	fallback storage.IStorage
 }
 
-func NewStorage(inner storage.Storage, fallback storage.Storage) *Storage {
+func NewStorage(inner storage.IStorage, fallback storage.IStorage) *Storage {
 	return &Storage{
 		inner,
 		fallback,

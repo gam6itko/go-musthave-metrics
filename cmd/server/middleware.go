@@ -7,11 +7,16 @@ import (
 	"time"
 )
 
+var (
+	_ http.ResponseWriter = (*loggingResponseWriter)(nil)
+)
+
 type responseData struct {
 	status int
 	size   int
 }
 
+// loggingResponseWriter логирует входящие запросы.
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	responseData *responseData

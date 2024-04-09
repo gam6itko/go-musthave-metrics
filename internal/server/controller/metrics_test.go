@@ -1,4 +1,4 @@
-package main
+package controller
 
 import (
 	"bytes"
@@ -26,6 +26,8 @@ func Test_decodeJsonRequest_metricNotSameRef(t *testing.T) {
 		"/update",
 		bytes.NewBufferString(`{"id": "foo", "type": "counter"}`),
 	)
+	require.NotNil(t, req2)
+
 	req2.Header.Set("Content-Type", "application/json")
 	require.NoError(t, err)
 	m2, err := decodeMetricsRequest(req2)

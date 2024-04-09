@@ -1,9 +1,12 @@
+// Сервер для сбора метрик. Хранит и отображает метрики.
+// Хранит метрики тольтко для одного компьютера.
 package main
 
 import (
 	"context"
 	"database/sql"
 	"flag"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
@@ -23,7 +26,7 @@ import (
 )
 
 // todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
-var MetricStorage storage.Storage
+var MetricStorage storage.IStorage
 var Database *sql.DB
 
 // @Title Get All Metrics
@@ -115,13 +118,14 @@ func newRouter() chi.Router {
 	r.Use(requestLoggingMiddleware)
 	r.Use(compressMiddleware)
 
-	r.Get("/", getAllMetricsHandler)
-	r.Get("/value/{type}/{name}", getValueHandler)
-	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
+	ctrl := controller.NewMetricsController(MetricStorage, Log)
+	r.Get("/", ctrl.GetAllMetricsHandler)
+	r.Get("/value/{type}/{name}", ctrl.GetValue)
+	r.Post("/update/{type}/{name}/{value}", ctrl.PostUpdate)
 	// json
-	r.Post("/value/", postValueJSONHandler)
-	r.Post("/update/", postUpdateJSONHandler)
-	r.Post("/updates/", postUpdateBatchJSONHandler)
+	r.Post("/value/", ctrl.PostValueJSONHandler)
+	r.Post("/update/", ctrl.PostUpdateJSONHandler)
+	r.Post("/updates/", ctrl.PostUpdateBatchJSONHandler)
 	// database
 	r.Get("/ping", getPingHandler)
 
