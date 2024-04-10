@@ -20,7 +20,7 @@ func NewStorage() *Storage {
 	}
 }
 
-func (ths *Storage) CounterInc(ctx context.Context, name string, val int64) error {
+func (ths *Storage) CounterInc(_ context.Context, name string, val int64) error {
 	ths.mux.Lock()
 	defer ths.mux.Unlock()
 
@@ -28,7 +28,7 @@ func (ths *Storage) CounterInc(ctx context.Context, name string, val int64) erro
 	return nil
 }
 
-func (ths *Storage) CounterGet(ctx context.Context, name string) (int64, error) {
+func (ths *Storage) CounterGet(_ context.Context, name string) (int64, error) {
 	ths.mux.RLock()
 	defer ths.mux.RUnlock()
 
@@ -39,7 +39,7 @@ func (ths *Storage) CounterGet(ctx context.Context, name string) (int64, error) 
 	return 0, errors.New("not found")
 }
 
-func (ths *Storage) CounterAll(ctx context.Context) (map[string]int64, error) {
+func (ths *Storage) CounterAll(_ context.Context) (map[string]int64, error) {
 	ths.mux.RLock()
 	defer ths.mux.RUnlock()
 
@@ -51,7 +51,7 @@ func (ths *Storage) CounterAll(ctx context.Context) (map[string]int64, error) {
 	return ths.counter, nil
 }
 
-func (ths *Storage) GaugeSet(ctx context.Context, name string, val float64) error {
+func (ths *Storage) GaugeSet(_ context.Context, name string, val float64) error {
 	ths.mux.Lock()
 	defer ths.mux.Unlock()
 
@@ -59,7 +59,7 @@ func (ths *Storage) GaugeSet(ctx context.Context, name string, val float64) erro
 	return nil
 }
 
-func (ths *Storage) GaugeGet(ctx context.Context, name string) (float64, error) {
+func (ths *Storage) GaugeGet(_ context.Context, name string) (float64, error) {
 	ths.mux.RLock()
 	defer ths.mux.RUnlock()
 
@@ -69,7 +69,7 @@ func (ths *Storage) GaugeGet(ctx context.Context, name string) (float64, error) 
 	return 0.0, errors.New("not found")
 }
 
-func (ths *Storage) GaugeAll(ctx context.Context) (map[string]float64, error) {
+func (ths *Storage) GaugeAll(_ context.Context) (map[string]float64, error) {
 	ths.mux.RLock()
 	defer ths.mux.RUnlock()
 

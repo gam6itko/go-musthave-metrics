@@ -79,3 +79,40 @@ Content-Type: application/json
   }
 ]
 ```
+
+### iter16
+
+Сохраните профиль потребления памяти.
+
+Запустим 2 сервиса и дадим им чуток поработать.
+
+#### server
+
+```shell
+mkdir -p ./profiles/server
+mkdir -p ./profiles/client
+curl http://localhost:8080/debug/pprof/allocs > ./profiles/server/allocs.base.pprof
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8080/debug/pprof/allocs
+go tool pprof -http=":9090" -seconds=30 ./profiles/server/allocs.base.pprof
+```
+
+Тут видно что больше всего памяти потребляет compress/flate.NewWriter.
+
+#### client
+
+```shell
+mkdir -p ./profiles/client
+curl http://localhost:8081/debug/pprof/allocs > ./profiles/client/allocs.base.pprof
+# go tool pprof -http=":9090" -seconds=30 http://localhost:8081/debug/pprof/allocs
+go tool pprof -http=":9090" -seconds=30 ./profiles/client/allocs.base.pprof
+```
+
+Тут видно что больше всего памяти потребляет compress/flate.NewWriter.
+
+
+### iter18
+
+```shell
+swag init --dir=./cmd/agent --output ./swagger/agent
+swag init --dir=./cmd/server --output ./swagger/server
+```

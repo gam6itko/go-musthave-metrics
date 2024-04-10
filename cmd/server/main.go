@@ -1,9 +1,12 @@
+// Сервер для сбора метрик. Хранит и отображает метрики.
+// Хранит метрики тольтко для одного компьютера.
 package main
 
 import (
 	"context"
 	"database/sql"
 	"flag"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
@@ -11,9 +14,11 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/retrible"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,9 +26,16 @@ import (
 )
 
 // todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
-var MetricStorage storage.Storage
+var MetricStorage storage.IStorage
 var Database *sql.DB
 var _key string
+
+// @Title Get All Metrics
+// @Description Накопление и отображение метрик.
+// @Version 1.0
+// @Contact.email gam6itko@yandex.ru
+// @BasePath /
+// @Host localhost:8080
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
@@ -115,15 +127,18 @@ func newRouter() chi.Router {
 	r.Use(hashCheckMiddleware)
 	r.Use(compressMiddleware)
 
-	r.Get("/", getAllMetricsHandler)
-	r.Get("/value/{type}/{name}", getValueHandler)
-	r.Post("/update/{type}/{name}/{value}", postUpdateHandler)
+	ctrl := controller.NewMetricsController(MetricStorage, Log)
+	r.Get("/", ctrl.GetAllMetricsHandler)
+	r.Get("/value/{type}/{name}", ctrl.GetValue)
+	r.Post("/update/{type}/{name}/{value}", ctrl.PostUpdate)
 	// json
-	r.Post("/value/", postValueJSONHandler)
-	r.Post("/update/", postUpdateJSONHandler)
-	r.Post("/updates/", postUpdateBatchJSONHandler)
+	r.Post("/value/", ctrl.PostValueJSONHandler)
+	r.Post("/update/", ctrl.PostUpdateJSONHandler)
+	r.Post("/updates/", ctrl.PostUpdateBatchJSONHandler)
 	// database
 	r.Get("/ping", getPingHandler)
+
+	r.Mount("/debug", middleware.Profiler())
 
 	return r
 }

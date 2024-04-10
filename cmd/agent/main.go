@@ -18,6 +18,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"reflect"
 	"runtime"
@@ -91,13 +92,16 @@ func init() {
 }
 
 func main() {
-	mux := sync.RWMutex{}
+	go func() {
+		mux := sync.RWMutex{}
+		var wg sync.WaitGroup
 
-	var wg sync.WaitGroup
+		startPolling(&wg, &mux)
+		startReporting(&wg, &mux)
+		wg.Wait()
+	}()
 
-	startPolling(&wg, &mux)
-	startReporting(&wg, &mux)
-	wg.Wait()
+	http.ListenAndServe(":8081", nil)
 }
 
 func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
