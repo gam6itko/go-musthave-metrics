@@ -1,6 +1,9 @@
+// Супер-мега-турбо линтер для проверки кода, который собирает ультра-дисплей-актуальные метрики.
+
 package main
 
 import (
+	"github.com/gam6itko/go-musthave-metrics/internal/analysis/noexit"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -55,6 +58,7 @@ import (
 	"honnef.co/go/tools/simple"
 	"honnef.co/go/tools/staticcheck"
 	"honnef.co/go/tools/stylecheck"
+	"os"
 )
 
 func main() {
@@ -107,6 +111,8 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
+		// custom
+		noexit.Analyzer,
 	}
 
 	// все анализаторы класса SA пакета staticcheck.io;
@@ -118,4 +124,6 @@ func main() {
 	multichecker.Main(
 		analyzers...,
 	)
+
+	os.Exit(0)
 }
