@@ -1,6 +1,7 @@
 package main
 
 import (
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
 	"golang.org/x/tools/go/analysis/passes/asmdecl"
@@ -50,10 +51,14 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
+	"honnef.co/go/tools/quickfix"
+	"honnef.co/go/tools/simple"
+	"honnef.co/go/tools/staticcheck"
+	"honnef.co/go/tools/stylecheck"
 )
 
 func main() {
-	multichecker.Main(
+	analyzers := []*analysis.Analyzer{
 		appends.Analyzer,
 		asmdecl.Analyzer,
 		assign.Analyzer,
@@ -102,5 +107,15 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
+	}
+
+	// все анализаторы класса SA пакета staticcheck.io;
+	analyzers = append(analyzers, lints2Analyzers(staticcheck.Analyzers)...)
+	analyzers = append(analyzers, lintPick(stylecheck.Analyzers, "ST1001", "ST1006")...)
+	analyzers = append(analyzers, lintPick(simple.Analyzers, "S1000", "S1001")...)
+	analyzers = append(analyzers, lintPick(quickfix.Analyzers, "QF1001", "QF1002")...)
+
+	multichecker.Main(
+		analyzers...,
 	)
 }
