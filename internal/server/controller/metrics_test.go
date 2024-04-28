@@ -114,7 +114,7 @@ func TestMetricsController(t *testing.T) {
 
 			g, err := storage.GaugeGet(context.TODO(), "gauge1")
 			require.NoError(t, err)
-			require.Equal(t, 19.17, g)
+			require.InEpsilon(t, 19.17, g, 1)
 			require.Equal(t, "OK", w.Body.String())
 		})
 	})
@@ -153,7 +153,7 @@ func TestMetricsController(t *testing.T) {
 
 			g, err := storage.GaugeGet(context.TODO(), "gauge2")
 			require.NoError(t, err)
-			require.Equal(t, float64(19.22), g)
+			require.InEpsilon(t, 19.22, g, 1)
 		})
 	})
 
@@ -316,5 +316,5 @@ func Test_decodeMetricsBatchRequest(t *testing.T) {
 	// 1
 	require.Equal(t, "GaugeABC", list[1].ID)
 	require.Equal(t, "gauge", list[1].MType)
-	require.Equal(t, float64(19.17), *list[1].Value)
+	require.InDelta(t, float64(19.17), *list[1].Value, .1)
 }

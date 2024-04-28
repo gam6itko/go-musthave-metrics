@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/mocks"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -56,13 +56,13 @@ func Test_Decoration(t *testing.T) {
 
 		name := "foo"
 		err := s.CounterInc(ctx, name, 1)
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		_, err = s.CounterGet(ctx, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		_, err = s.CounterAll(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("gauge", func(t *testing.T) {
@@ -70,13 +70,13 @@ func Test_Decoration(t *testing.T) {
 
 		name := "bar"
 		err := s.GaugeSet(ctx, name, 19.17)
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		_, err = s.GaugeGet(ctx, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		_, err = s.GaugeAll(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -121,9 +121,9 @@ func Test_Decoration2(t *testing.T) {
 	ctx := context.Background()
 
 	err := s.CounterInc(ctx, "counter1", 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	val, err := s.CounterGet(ctx, "counter1")
-	assert.NoError(t, err)
-	assert.Equal(t, int64(1), val)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), val)
 }

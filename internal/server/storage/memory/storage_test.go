@@ -2,7 +2,7 @@ package memory
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -13,11 +13,11 @@ func TestGaugeSetGet(t *testing.T) {
 
 	metricName := "foo"
 	err := s.GaugeSet(ctx, metricName, 19.17)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	val, err := s.GaugeGet(ctx, metricName)
-	assert.NoError(t, err)
-	assert.Equal(t, 19.17, val)
+	require.NoError(t, err)
+	require.InDelta(t, 19.17, val, .0001)
 }
 
 func TestCounterSetGet(t *testing.T) {
@@ -27,11 +27,11 @@ func TestCounterSetGet(t *testing.T) {
 
 	metricName := "bar"
 	err := s.CounterInc(ctx, metricName, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	val, err := s.CounterGet(ctx, metricName)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(1), val)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), val)
 }
 
 func TestCounterGetNotExists(t *testing.T) {
@@ -41,6 +41,6 @@ func TestCounterGetNotExists(t *testing.T) {
 
 	metricName := "not_found"
 	val, err := s.CounterGet(ctx, metricName)
-	assert.Error(t, err)
-	assert.Equal(t, int64(0), val)
+	require.Error(t, err)
+	require.InDelta(t, 0, val, .1)
 }

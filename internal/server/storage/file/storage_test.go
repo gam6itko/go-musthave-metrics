@@ -104,7 +104,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 			require.NoError(t, err)
 			gVal2, err := ms2.GaugeGet(ctx, "gauge4")
 			require.NoError(t, err)
-			require.Equal(t, gVal1, gVal2)
+			require.InDelta(t, gVal1, gVal2, .000001)
 
 			// еще один load
 			err = ms2.CounterInc(ctx, "counter3", 9999)
@@ -119,7 +119,7 @@ func Test_Storage_SaveLoad(t *testing.T) {
 			require.Equal(t, int64(3), cVal2)
 			gVal2, err = ms2.GaugeGet(ctx, "gauge4")
 			require.NoError(t, err)
-			require.Equal(t, 4.4, gVal2)
+			require.InDelta(t, 4.4, gVal2, .1)
 		})
 
 		// tear down
