@@ -182,16 +182,10 @@ func (ths MetricsController) PostUpdateJSONHandler(resp http.ResponseWriter, req
 		return
 	}
 
-	if err := ths.persistMetric(req.Context(), metric); err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+	if pErr := ths.persistMetric(req.Context(), metric); pErr != nil {
+		httpErrorJSON(resp, pErr.Error(), http.StatusBadRequest)
 		return
 	}
-
-	//b, err := json.Marshal(resp)
-	//if err != nil {
-	//	httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
 
 	resp.WriteHeader(http.StatusOK)
 	_, err = resp.Write([]byte("OK"))
@@ -212,8 +206,8 @@ func (ths MetricsController) PostUpdateBatchJSONHandler(resp http.ResponseWriter
 	}
 
 	for _, m := range metricList {
-		if err := ths.persistMetric(req.Context(), &m); err != nil {
-			httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+		if pErr := ths.persistMetric(req.Context(), &m); pErr != nil {
+			httpErrorJSON(resp, pErr.Error(), http.StatusBadRequest)
 			return
 		}
 	}

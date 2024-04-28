@@ -100,14 +100,14 @@ func TestGetValue(t *testing.T) {
 	defer ts.Close()
 
 	type want struct {
-		code  int
 		value any
+		code  int
 	}
 	tests := []struct {
+		want    want
 		name    string
 		method  string
 		urlPath string
-		want    want
 	}{
 		// counter
 		{

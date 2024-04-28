@@ -28,14 +28,16 @@ import (
 )
 
 type metrics struct {
-	runtime.MemStats
+	// Second
+	CPUUtilization []float64
+
 	PollCount   int64
 	RandomValue float64
 	//gopsutil
 	TotalMemory uint64
 	FreeMemory  uint64
-	// Second
-	CPUUtilization []float64
+
+	runtime.MemStats
 }
 
 var _serverAddr commonFlags.NetAddress
@@ -309,8 +311,8 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 			if _key != "" {
 				// подписываем алгоритмом HMAC, используя SHA-256
 				h := hmac.New(sha256.New, []byte(_key))
-				if _, err := h.Write(requestBody.Bytes()); err != nil {
-					return err
+				if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
+					return wErr
 				}
 				dst := h.Sum(nil)
 
