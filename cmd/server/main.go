@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
@@ -25,17 +26,22 @@ import (
 	"time"
 )
 
-// todo-bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
+// TODO: bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.IStorage
 var Database *sql.DB
 var _key string
 
-// @Title Get All Metrics
-// @Description Накопление и отображение метрик.
-// @Version 1.0
-// @Contact.email gam6itko@yandex.ru
-// @BasePath /
-// @Host localhost:8080
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
+func init() {
+	fmt.Printf("Build version: %s\n", buildVersion)
+	fmt.Printf("Build date: %s\n", buildDate)
+	fmt.Printf("Build commit: %s\n", buildCommit)
+}
 
 func main() {
 	var fsConfig = &file.Config{} //create from flags
