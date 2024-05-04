@@ -64,14 +64,14 @@ func savePublic(key *rsa.PublicKey, path string) error {
 	}
 	defer f.Close()
 
-	pubkey_bytes, err := x509.MarshalPKIXPublicKey(key)
+	bPublic, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return err
 	}
 	b := pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "RSA PUBLIC KEY",
-			Bytes: pubkey_bytes,
+			Bytes: bPublic,
 		},
 	)
 

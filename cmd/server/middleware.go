@@ -161,14 +161,14 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 			return
 		}
 		if err2 := r.Body.Close(); err2 != nil {
-			Log.Error(err.Error())
+			Log.Error(err2.Error())
 		}
 
 		r.Body = io.NopCloser(bytes.NewBuffer(b))
 		handler.ServeHTTP(w, r)
 
 		if _, err2 := w.Write(b); err2 != nil {
-			Log.Error(err.Error())
+			Log.Error(err2.Error())
 		}
 	})
 }
