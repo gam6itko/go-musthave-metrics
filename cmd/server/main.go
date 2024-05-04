@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
@@ -140,7 +140,7 @@ func loadPrivateKey(path string) *rsa.PrivateKey {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return rsa_utils.BytesToPrivateKey(b)
+	return rsautils.BytesToPrivateKey(b)
 }
 
 func newRouter() chi.Router {

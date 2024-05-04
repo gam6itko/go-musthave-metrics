@@ -1,4 +1,4 @@
-package rsa_utils
+package rsautils
 
 import (
 	"crypto/rsa"

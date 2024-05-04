@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
-	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -117,7 +117,7 @@ func loadPublicKey(path string) *rsa.PublicKey {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return rsa_utils.BytesToPublicKey(b)
+	return rsautils.BytesToPublicKey(b)
 }
 
 func main() {
@@ -321,7 +321,7 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 			if _rsaPublicKey != nil {
 				hash := sha512.New()
-				enc, err2 := rsa_utils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
+				enc, err2 := rsautils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
 				if err2 != nil {
 					log.Fatal(err2)
 				}

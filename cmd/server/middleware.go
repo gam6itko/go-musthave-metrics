@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
-	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
@@ -154,7 +154,7 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 
 		defer r.Body.Close()
 
-		b, err := rsa_utils.DecryptOAEP(hash, r.Body, _rsaPrivateKey, nil, nil)
+		b, err := rsautils.DecryptOAEP(hash, r.Body, _rsaPrivateKey, nil, nil)
 		if err != nil {
 			Log.Error(err.Error())
 			w.WriteHeader(http.StatusBadRequest)
