@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
@@ -18,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -30,6 +33,7 @@ import (
 var MetricStorage storage.IStorage
 var Database *sql.DB
 var _key string
+var _rsaPrivateKey *rsa.PrivateKey
 
 var (
 	buildVersion = "N/A"
@@ -62,6 +66,7 @@ func main() {
 	bindAddrTmp := flag.String("a", "", "Net address host:port")
 	dbDsnTmp := flag.String("d", "", "Database DSN")
 	keyTmp := flag.String("k", "", "Hash key")
+	privateKeyPath := flag.String("crypto-key", "", "Private key path")
 	file.FromFlags(fsConfig, flag.CommandLine)
 	flag.Parse()
 
@@ -124,6 +129,18 @@ func main() {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
 	fileStorage.Close()
+
+	if privateKeyPath != nil {
+		_rsaPrivateKey = loadPrivateKey(*privateKeyPath)
+	}
+}
+
+func loadPrivateKey(path string) *rsa.PrivateKey {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return rsa_utils.BytesToPrivateKey(b)
 }
 
 func newRouter() chi.Router {
@@ -131,6 +148,7 @@ func newRouter() chi.Router {
 
 	r.Use(requestLoggingMiddleware)
 	r.Use(hashCheckMiddleware)
+	r.Use(rsaDecodeMiddleware)
 	r.Use(compressMiddleware)
 
 	ctrl := controller.NewMetricsController(MetricStorage, Log)

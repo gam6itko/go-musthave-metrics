@@ -12,6 +12,7 @@ FILE_STORAGE_PATH=/tmp/metrics-db.json
 RESTORE=true
 DATABASE_DSN="postgres://postgres:password@172.22.0.2:5432/yp_metrics"
 KEY="key"
+CRYPTO_KEY=/tmp/go-musthave-metrics/private.key
 ```
 
 ### get docker ip
@@ -29,6 +30,7 @@ REPORT_INTERVAL=10
 POLL_INTERVAL=2
 KEY="abc"
 RATE_LIMIT=4
+CRYPTO_KEY=/tmp/go-musthave-metrics/public.key
 ```
 
 # sprint
@@ -115,4 +117,13 @@ go tool pprof -http=":9090" -seconds=30 ./profiles/client/allocs.base.pprof
 ```shell
 swag init --dir=./cmd/agent --output ./swagger/agent
 swag init --dir=./cmd/server --output ./swagger/server
+```
+
+
+### iter21
+
+Сгенерировать ключи командой
+```shell
+build -o keygen ./cmd/keygen 
+./keygen -path .
 ```

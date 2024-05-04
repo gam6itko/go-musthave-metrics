@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -11,6 +13,7 @@ import (
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -46,6 +49,7 @@ var _reportInterval uint
 var _pollInterval uint
 var _key string
 var _rateLimit uint
+var _pubKey *rsa.PublicKey
 
 var (
 	buildVersion = "N/A"
@@ -66,12 +70,16 @@ func init() {
 	pollIntervalF := flag.Uint("p", 2, "Poll interval")
 	keyF := flag.String("k", "", "Encryption key")
 	rateLimitF := flag.Uint("l", 0, "Request rate limit")
+	publicKeyPath := flag.String("crypto-key", "", "Public key")
 	flag.Parse()
 
 	_reportInterval = *reportIntervalF
 	_pollInterval = *pollIntervalF
 	_key = *keyF
 	_rateLimit = *rateLimitF
+	if publicKeyPath != nil {
+		_pubKey = loadPublicKey(*publicKeyPath)
+	}
 
 	// read from env
 	if envVal := os.Getenv("ADDRESS"); envVal != "" {
@@ -101,6 +109,15 @@ func init() {
 	_stat = metrics{
 		PollCount: 0,
 	}
+}
+
+// loadPublicKey загружает publicKey из файла.
+func loadPublicKey(path string) *rsa.PublicKey {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return rsa_utils.BytesToPublicKey(b)
 }
 
 func main() {
@@ -160,6 +177,7 @@ func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	}()
 }
 
+// startReporting запустить сбор и отправку метрик.
 func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	wg.Add(1)
 
@@ -268,7 +286,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 	}()
 }
 
-// Для инкремента 15 мы будем отправлять по одной метрике в разных горутино-запросах.
+// sendMetrics отправляет мертрики на сервер.
 func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 	g := new(errgroup.Group)
 
@@ -299,6 +317,15 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 				valueStr = strconv.FormatFloat(*oneMetric.Value, 'f', 10, 64)
 			default:
 				return errors.New("invalid MType")
+			}
+
+			if _pubKey != nil {
+				hash := sha512.New()
+				enc, err2 := rsa.EncryptOAEP(hash, requestBody, _pubKey, requestBody.Bytes(), []byte{})
+				if err2 != nil {
+					log.Fatal(err2)
+				}
+				requestBody = bytes.NewBuffer(enc)
 			}
 
 			req, err := http.NewRequest(
