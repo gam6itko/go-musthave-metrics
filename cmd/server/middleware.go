@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsa_utils"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
@@ -148,15 +148,24 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hash := sha512.New()
 		if _rsaPrivateKey == nil {
+			handler.ServeHTTP(w, r)
 			return
 		}
 
-		b, err := rsa.DecryptOAEP(hash, r.Body, _rsaPrivateKey, []byte{}, []byte{})
+		defer r.Body.Close()
+
+		b, err := rsa_utils.DecryptOAEP(hash, r.Body, _rsaPrivateKey, nil, nil)
 		if err != nil {
 			Log.Error(err.Error())
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		if err2 := r.Body.Close(); err2 != nil {
+			Log.Error(err.Error())
+		}
+
+		r.Body = io.NopCloser(bytes.NewBuffer(b))
+		handler.ServeHTTP(w, r)
 
 		if _, err2 := w.Write(b); err2 != nil {
 			Log.Error(err.Error())

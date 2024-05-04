@@ -74,6 +74,10 @@ func main() {
 		Log.Fatal(err.Error())
 	}
 
+	if *privateKeyPath != "" {
+		_rsaPrivateKey = loadPrivateKey(*privateKeyPath)
+	}
+
 	if bindAddr == "" {
 		if *bindAddrTmp != "" {
 			bindAddr = *bindAddrTmp
@@ -129,10 +133,6 @@ func main() {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
 	fileStorage.Close()
-
-	if privateKeyPath != nil {
-		_rsaPrivateKey = loadPrivateKey(*privateKeyPath)
-	}
 }
 
 func loadPrivateKey(path string) *rsa.PrivateKey {

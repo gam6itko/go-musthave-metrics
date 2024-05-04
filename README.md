@@ -124,6 +124,6 @@ swag init --dir=./cmd/server --output ./swagger/server
 
 Сгенерировать ключи командой
 ```shell
-build -o keygen ./cmd/keygen 
+go build -o keygen ./cmd/keygen 
 ./keygen -path .
 ```

@@ -47,9 +47,9 @@ var _serverAddr commonFlags.NetAddress
 var _stat metrics
 var _reportInterval uint
 var _pollInterval uint
-var _key string
+var _signKey string
 var _rateLimit uint
-var _pubKey *rsa.PublicKey
+var _rsaPublicKey *rsa.PublicKey
 
 var (
 	buildVersion = "N/A"
@@ -75,10 +75,10 @@ func init() {
 
 	_reportInterval = *reportIntervalF
 	_pollInterval = *pollIntervalF
-	_key = *keyF
+	_signKey = *keyF
 	_rateLimit = *rateLimitF
-	if publicKeyPath != nil {
-		_pubKey = loadPublicKey(*publicKeyPath)
+	if *publicKeyPath != "" {
+		_rsaPublicKey = loadPublicKey(*publicKeyPath)
 	}
 
 	// read from env
@@ -98,7 +98,7 @@ func init() {
 		}
 	}
 	if envVal := os.Getenv("KEY"); envVal != "" {
-		_key = envVal
+		_signKey = envVal
 	}
 	if envVal := os.Getenv("RATE_LIMIT"); envVal != "" {
 		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
@@ -319,9 +319,9 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 				return errors.New("invalid MType")
 			}
 
-			if _pubKey != nil {
+			if _rsaPublicKey != nil {
 				hash := sha512.New()
-				enc, err2 := rsa.EncryptOAEP(hash, requestBody, _pubKey, requestBody.Bytes(), []byte{})
+				enc, err2 := rsa_utils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
 				if err2 != nil {
 					log.Fatal(err2)
 				}
@@ -345,9 +345,9 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 			req.Header.Set("Content-Type", "application/json")
 
-			if _key != "" {
+			if _signKey != "" {
 				// подписываем алгоритмом HMAC, используя SHA-256
-				h := hmac.New(sha256.New, []byte(_key))
+				h := hmac.New(sha256.New, []byte(_signKey))
 				if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
 					return wErr
 				}
