@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"go.uber.org/zap"
 	"io"
@@ -139,5 +141,25 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r)
 
 		//todo w.Header().Set("HashSHA256", "response body hash")
+	})
+}
+
+func rsaDecodeMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hash := sha512.New()
+		if _rsaPrivateKey == nil {
+			return
+		}
+
+		b, err := rsa.DecryptOAEP(hash, r.Body, _rsaPrivateKey, []byte{}, []byte{})
+		if err != nil {
+			Log.Error(err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if _, err2 := w.Write(b); err2 != nil {
+			Log.Error(err.Error())
+		}
 	})
 }
