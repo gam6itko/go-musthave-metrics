@@ -6,7 +6,7 @@ import (
 	"github.com/gam6itko/go-musthave-metrics/internal/server/mocks"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -44,20 +44,20 @@ func Test_Decoration(t *testing.T) {
 
 	//counter
 	err := s.CounterInc(ctx, "foo", 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	counterVal, err := s.CounterGet(ctx, "foo")
-	assert.NoError(t, err)
-	assert.Equal(t, int64(1), counterVal)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), counterVal)
 	counterAll, err := s.CounterAll(ctx)
-	assert.NoError(t, err)
-	assert.Len(t, counterAll, 1)
+	require.NoError(t, err)
+	require.Len(t, counterAll, 1)
 	// gauge
 	err = s.GaugeSet(ctx, "bar", 19.17)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	gaugeVal, err := s.GaugeGet(ctx, "bar")
-	assert.NoError(t, err)
-	assert.Equal(t, float64(19.17), gaugeVal)
+	require.NoError(t, err)
+	require.InDelta(t, 19.17, gaugeVal, .0001)
 	gaugeAll, err := s.GaugeAll(ctx)
-	assert.NoError(t, err)
-	assert.Len(t, gaugeAll, 1)
+	require.NoError(t, err)
+	require.Len(t, gaugeAll, 1)
 }

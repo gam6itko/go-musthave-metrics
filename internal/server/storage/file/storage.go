@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/memory"
 	"io"
 	"os"
 	"sync"
@@ -13,12 +13,12 @@ import (
 
 // Storage decorator on memory.Storage
 type Storage struct {
-	inner storage.IStorage
+	inner *memory.Storage
 	file  *os.File
 	mux   sync.Mutex
 }
 
-func NewStorage(inner storage.IStorage, filepath string, ioSync bool) (*Storage, error) {
+func NewStorage(inner *memory.Storage, filepath string, ioSync bool) (*Storage, error) {
 	flag := os.O_RDWR | os.O_CREATE
 	if ioSync {
 		flag |= os.O_SYNC
