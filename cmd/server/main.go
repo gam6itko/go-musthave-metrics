@@ -6,9 +6,9 @@ import (
 	"context"
 	"crypto/rsa"
 	"database/sql"
-	"flag"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/config"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
@@ -48,61 +48,20 @@ func init() {
 }
 
 func main() {
-	var fsConfig = &file.Config{} //create from flags
-	var bindAddr string
-	var dbDsn string
+	cfg := initConfig()
 
-	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
-		bindAddr = envVal
-	}
-	if envVal, exists := os.LookupEnv("KEY"); exists {
-		_key = envVal
-	}
-	//init db
-	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
-		dbDsn = envVal
+	if cfg.RSAPrivateKey != "" {
+		_rsaPrivateKey = loadPrivateKey(cfg.RSAPrivateKey)
 	}
 
-	bindAddrTmp := flag.String("a", "", "Net address host:port")
-	dbDsnTmp := flag.String("d", "", "Database DSN")
-	keyTmp := flag.String("k", "", "Hash key")
-	privateKeyPath := flag.String("crypto-key", "", "Private key path")
-	file.FromFlags(fsConfig, flag.CommandLine)
-	flag.Parse()
-
-	if err := file.FromEnv(fsConfig); err != nil {
-		Log.Fatal(err.Error())
-	}
-
-	if *privateKeyPath != "" {
-		_rsaPrivateKey = loadPrivateKey(*privateKeyPath)
-	}
-
-	if bindAddr == "" {
-		if *bindAddrTmp != "" {
-			bindAddr = *bindAddrTmp
-		} else {
-			bindAddr = "localhost:8080"
-		}
-	}
-	// database open
-	if *dbDsnTmp != "" {
-		dbDsn = *dbDsnTmp
-	}
-	if _key == "" {
-		if *keyTmp != "" {
-			_key = *keyTmp
-		}
-	}
-
-	tmpDB, err := sql.Open("pgx", dbDsn)
+	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
 	if err != nil {
 		panic(err)
 	}
 	Database = tmpDB
 	database.InitSchema(Database)
 
-	fileStorage := newFileStorage(fsConfig)
+	fileStorage := newFileStorage(cfg)
 	MetricStorage = fallback.NewStorage(
 		retrible.NewStorage(
 			database.NewStorage(Database),
@@ -116,13 +75,13 @@ func main() {
 	)
 
 	server := &http.Server{
-		Addr:    bindAddr,
+		Addr:    cfg.Address,
 		Handler: newRouter(),
 	}
 
 	go catchSignal(server)
 
-	Log.Info("Starting server", zap.String("addr", bindAddr))
+	Log.Info("Starting server", zap.String("addr", cfg.Address))
 	if err := server.ListenAndServe(); err != nil {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
@@ -167,18 +126,18 @@ func newRouter() chi.Router {
 	return r
 }
 
-func newFileStorage(fsConfig *file.Config) *file.Storage {
-	sync := fsConfig.StoreInterval == 0
+func newFileStorage(cfg config.Config) *file.Storage {
+	sync := cfg.StoreInterval == 0
 	fs, err := file.NewStorage(
 		memory.NewStorage(),
-		fsConfig.FileStoragePath,
+		cfg.StoreFile,
 		sync,
 	)
 	if err != nil {
 		Log.Fatal(err.Error())
 	}
 
-	if fsConfig.Restore {
+	if cfg.Restore {
 		if err := fs.Load(); err != nil {
 			Log.Fatal(err.Error())
 		}
@@ -187,7 +146,7 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 	if !sync {
 		// Сохраняем каждые N секунд, если нет флага SYNC
 		go func() {
-			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
 			for range ticker.C {
 				fs.Save(context.TODO()) // грязновато, по идее нужно делать какой-то bridge-saver
 			}
