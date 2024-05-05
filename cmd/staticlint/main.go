@@ -58,7 +58,6 @@ import (
 	"honnef.co/go/tools/simple"
 	"honnef.co/go/tools/staticcheck"
 	"honnef.co/go/tools/stylecheck"
-	"os"
 )
 
 func main() {
@@ -124,6 +123,4 @@ func main() {
 	multichecker.Main(
 		analyzers...,
 	)
-
-	os.Exit(0)
 }

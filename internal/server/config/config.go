@@ -13,14 +13,8 @@ type Config struct {
 	// Address of http server.
 	Address string `json:"address,omitempty"`
 
-	// StoreInterval - интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск.
-	StoreInterval uint64 `json:"store_interval,omitempty"`
-
 	// StoreFile - полное имя файла, куда сохраняются текущие значения.
 	StoreFile string `json:"store_file,omitempty"`
-
-	// Restore - загружать или нет ранее сохранённые значения из указанного файла при старте сервера.
-	Restore bool `json:"restore,omitempty"`
 
 	DatabaseDSN string `json:"database_dsn,omitempty"`
 
@@ -28,6 +22,12 @@ type Config struct {
 	RSAPrivateKey string `json:"crypto_key"`
 
 	SignKey string
+
+	// StoreInterval - интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск.
+	StoreInterval uint64 `json:"store_interval,omitempty"`
+
+	// Restore - загружать или нет ранее сохранённые значения из указанного файла при старте сервера.
+	Restore bool `json:"restore,omitempty"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -84,9 +84,10 @@ func FromFlags() FlagsConfig {
 }
 
 type EnvConfig struct {
-	Config
 	// ENV[CONFIG]
 	ConfigPath string
+
+	Config
 }
 
 func FromEnv() EnvConfig {
@@ -144,9 +145,10 @@ func FromEnv() EnvConfig {
 }
 
 type FlagsConfig struct {
-	Config
 	// -c / -config
 	ConfigPath string
+
+	Config
 }
 
 func FromJSONFile(path string) Config {

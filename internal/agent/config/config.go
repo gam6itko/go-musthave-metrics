@@ -11,16 +11,18 @@ import (
 type Config struct {
 	// аналог переменной окружения ADDRESS или флага -a
 	Address string `json:"address"`
+
+	// аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+	RSAPublicKey string `json:"crypto_key"`
+
+	SignKey string
+
 	// аналог переменной окружения REPORT_INTERVAL или флага -r
 	ReportInterval uint64 `json:"report_interval"`
 	// аналог переменной окружения POLL_INTERVAL или флага -p
 	PollInterval uint64 `json:"poll_interval"`
-	// аналог переменной окружения CRYPTO_KEY или флага -crypto-key
-	RSAPublicKey string `json:"crypto_key"`
 
 	RateLimit uint64
-
-	SignKey string
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -45,9 +47,11 @@ func (ths *Config) Merge(donor Config) {
 }
 
 type FlagsConfig struct {
-	Config
+
 	// -c / -config
 	ConfigPath string
+
+	Config
 }
 
 func FromFlags() FlagsConfig {
@@ -75,9 +79,10 @@ func FromFlags() FlagsConfig {
 }
 
 type EnvConfig struct {
-	Config
 	// ENV[CONFIG]
 	ConfigPath string
+
+	Config
 }
 
 func FromEnv() EnvConfig {

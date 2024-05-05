@@ -1,0 +1,23 @@
+name: go vet test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  statictest:
+    runs-on: ubuntu-latest
+    container: golang:1.21
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build staticlint
+        run: |
+          go build -o staticlint ./cmd/staticlint/
+
+      - name: Run staticlint
+        run: |
+          ./staticlint ./...
