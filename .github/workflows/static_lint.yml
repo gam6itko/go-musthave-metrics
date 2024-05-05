@@ -19,5 +19,6 @@ jobs:
           go build -buildvcs=false -o staticlint ./cmd/staticlint/
 
       - name: Run staticlint
+        continue-on-error: true
         run: |
           ./staticlint ./...

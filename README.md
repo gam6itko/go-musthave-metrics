@@ -120,6 +120,14 @@ swag init --dir=./cmd/server --output ./swagger/server
 ```
 
 
+### iter20
+
+Проверить код своим родным линтером
+```shell
+go build -o staticlint ./cmd/staticlint/
+./staticlint ./internal/server/...
+```
+
 ### iter21
 
 Сгенерировать ключи командой

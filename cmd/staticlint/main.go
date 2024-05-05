@@ -116,7 +116,7 @@ func main() {
 
 	// все анализаторы класса SA пакета staticcheck.io;
 	analyzers = append(analyzers, lints2Analyzers(staticcheck.Analyzers)...)
-	analyzers = append(analyzers, lintPick(stylecheck.Analyzers, "ST1001", "ST1006")...)
+	analyzers = append(analyzers, lintPick(stylecheck.Analyzers, "ST1001", "ST1006", "ST1020")...)
 	analyzers = append(analyzers, lintPick(simple.Analyzers, "S1000", "S1001")...)
 	analyzers = append(analyzers, lintPick(quickfix.Analyzers, "QF1001", "QF1002")...)
 

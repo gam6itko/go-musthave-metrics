@@ -12,12 +12,12 @@ func NewSemaphore(maxReq uint64) *Semaphore {
 	}
 }
 
-// когда горутина запускается, отправляем пустую структуру в канал semaCh
+// Acquire когда горутина запускается, отправляем пустую структуру в канал semaCh.
 func (s *Semaphore) Acquire() {
 	s.semaCh <- struct{}{}
 }
 
-// когда горутина завершается, из канала semaCh убирается пустая структура
+// Release когда горутина завершается, из канала semaCh убирается пустая структура
 func (s *Semaphore) Release() {
 	<-s.semaCh
 }
