@@ -9,10 +9,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
-	commonFlags "github.com/gam6itko/go-musthave-metrics/internal/common/flags"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
@@ -43,12 +42,8 @@ type metrics struct {
 	runtime.MemStats
 }
 
-var _serverAddr commonFlags.NetAddress
+var _cfg config.Config
 var _stat metrics
-var _reportInterval uint
-var _pollInterval uint
-var _signKey string
-var _rateLimit uint
 var _rsaPublicKey *rsa.PublicKey
 
 var (
@@ -62,48 +57,10 @@ func init() {
 	fmt.Printf("Build date: %s\n", buildDate)
 	fmt.Printf("Build commit: %s\n", buildCommit)
 
-	_serverAddr = commonFlags.NewNetAddr("localhost", 8080)
+	_cfg = initConfig()
 
-	_ = flag.Value(&_serverAddr)
-	flag.Var(&_serverAddr, "a", "Server address host:port")
-	reportIntervalF := flag.Uint("r", 10, "Report interval")
-	pollIntervalF := flag.Uint("p", 2, "Poll interval")
-	keyF := flag.String("k", "", "Encryption key")
-	rateLimitF := flag.Uint("l", 0, "Request rate limit")
-	publicKeyPath := flag.String("crypto-key", "", "Public key")
-	flag.Parse()
-
-	_reportInterval = *reportIntervalF
-	_pollInterval = *pollIntervalF
-	_signKey = *keyF
-	_rateLimit = *rateLimitF
-	if *publicKeyPath != "" {
-		_rsaPublicKey = loadPublicKey(*publicKeyPath)
-	}
-
-	// read from env
-	if envVal := os.Getenv("ADDRESS"); envVal != "" {
-		if err := _serverAddr.FromString(envVal); err != nil {
-			panic(err)
-		}
-	}
-	if envVal := os.Getenv("REPORT_INTERVAL"); envVal != "" {
-		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
-			_reportInterval = uint(val)
-		}
-	}
-	if envVal := os.Getenv("POLL_INTERVAL"); envVal != "" {
-		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
-			_pollInterval = uint(val)
-		}
-	}
-	if envVal := os.Getenv("KEY"); envVal != "" {
-		_signKey = envVal
-	}
-	if envVal := os.Getenv("RATE_LIMIT"); envVal != "" {
-		if val, err := strconv.ParseUint(envVal, 10, 32); err == nil {
-			_rateLimit = uint(val)
-		}
+	if _cfg.RSAPublicKey != "" {
+		_rsaPublicKey = loadPublicKey(_cfg.RSAPublicKey)
 	}
 
 	_stat = metrics{
@@ -150,7 +107,7 @@ func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				_stat.PollCount++
 				_stat.RandomValue = rand.Float64()
 			}()
-			time.Sleep(time.Duration(_pollInterval) * time.Second)
+			time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
 		}
 	}()
 
@@ -172,7 +129,7 @@ func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
 				}
 				_stat.CPUUtilization = util
 			}()
-			time.Sleep(time.Duration(_pollInterval) * time.Second)
+			time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
 		}
 	}()
 }
@@ -223,7 +180,7 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 			Timeout: 30 * time.Second,
 		}
 
-		sleepDuration := time.Duration(_reportInterval) * time.Second
+		sleepDuration := time.Duration(_cfg.ReportInterval) * time.Second
 		for {
 			time.Sleep(sleepDuration)
 			log.Printf("sending metrics: %d\n", _stat.PollCount)
@@ -292,8 +249,8 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 	var semaphore sync2.ISemaphore
 	semaphore = &sync2.NullSemaphore{}
-	if _rateLimit > 0 {
-		semaphore = sync2.NewSemaphore(_rateLimit)
+	if _cfg.RateLimit > 0 {
+		semaphore = sync2.NewSemaphore(_cfg.RateLimit)
 	}
 
 	for _, m := range metricList {
@@ -332,7 +289,7 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 				http.MethodPost,
 				fmt.Sprintf(
 					"http://%s/update/%s/%s/%s",
-					_serverAddr.String(),
+					_cfg.Address,
 					oneMetric.MType,
 					oneMetric.ID,
 					valueStr,
@@ -345,9 +302,9 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 			req.Header.Set("Content-Type", "application/json")
 
-			if _signKey != "" {
+			if _cfg.SignKey != "" {
 				// подписываем алгоритмом HMAC, используя SHA-256
-				h := hmac.New(sha256.New, []byte(_signKey))
+				h := hmac.New(sha256.New, []byte(_cfg.SignKey))
 				if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
 					return wErr
 				}

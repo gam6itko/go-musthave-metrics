@@ -6,7 +6,7 @@ type Semaphore struct {
 }
 
 // NewSemaphore создает семафор с буферизованным каналом емкостью maxReq
-func NewSemaphore(maxReq uint) *Semaphore {
+func NewSemaphore(maxReq uint64) *Semaphore {
 	return &Semaphore{
 		semaCh: make(chan struct{}, maxReq),
 	}

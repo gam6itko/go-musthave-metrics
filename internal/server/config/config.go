@@ -120,12 +120,12 @@ func FromEnv() EnvConfig {
 		c.StoreInterval = uint64(storeInterval)
 	}
 
-	if filePath, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
-		filePath = strings.TrimSpace(filePath)
-		if filePath == "" {
+	if envVal, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
+		envVal = strings.TrimSpace(envVal)
+		if envVal == "" {
 			log.Fatal("FILE_STORAGE_PATH must not be empty")
 		}
-		c.StoreFile = filePath
+		c.StoreFile = envVal
 	}
 
 	if envVal, exists := os.LookupEnv("RESTORE"); exists {
