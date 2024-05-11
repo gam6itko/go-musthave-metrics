@@ -80,7 +80,9 @@ func (ths MetricsController) GetValue(resp http.ResponseWriter, req *http.Reques
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
-		io.WriteString(resp, fmt.Sprintf("%d", val))
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("%d", val)); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	case "gauge":
 		val, err := ths.storage.GaugeGet(req.Context(), name)
@@ -88,7 +90,9 @@ func (ths MetricsController) GetValue(resp http.ResponseWriter, req *http.Reques
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
-		io.WriteString(resp, fmt.Sprintf("%g", val))
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("%g", val)); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	default:
 		http.Error(resp, "invalid metric type", http.StatusNotFound)
@@ -142,7 +146,9 @@ func (ths MetricsController) PostUpdate(resp http.ResponseWriter, req *http.Requ
 	}
 
 	resp.WriteHeader(http.StatusOK)
-	io.WriteString(resp, "OK")
+	if _, err2 := io.WriteString(resp, "OK"); err2 != nil {
+		log.Printf("ERROR. fail to counter increment: %s", err2)
+	}
 }
 
 // PostValueJSONHandler запрос на получение одной метрики.
