@@ -59,7 +59,9 @@ func main() {
 		panic(err)
 	}
 	Database = tmpDB
-	database.InitSchema(Database)
+	if err2 := database.InitSchema(Database); err2 != nil {
+		log.Fatal("Failed to initialize database", err2)
+	}
 
 	fileStorage := newFileStorage(cfg)
 	MetricStorage = fallback.NewStorage(
@@ -148,7 +150,9 @@ func newFileStorage(cfg config.Config) *file.Storage {
 		go func() {
 			ticker := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
 			for range ticker.C {
-				fs.Save(context.TODO()) // грязновато, по идее нужно делать какой-то bridge-saver
+				if err2 := fs.Save(context.TODO()); err != nil { // грязновато, по идее нужно делать какой-то bridge-saver
+					log.Fatal("Failed to save file", err2)
+				}
 			}
 		}()
 	}

@@ -87,7 +87,9 @@ func main() {
 		wg.Wait()
 	}()
 
-	http.ListenAndServe(":8081", nil)
+	if err := http.ListenAndServe(":8081", nil); err != nil {
+		log.Printf("ERROR. http server returns error: %s", err)
+	}
 }
 
 func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
