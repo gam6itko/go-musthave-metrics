@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -22,10 +23,12 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"reflect"
 	"runtime"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -78,67 +81,92 @@ func loadPublicKey(path string) *rsa.PublicKey {
 }
 
 func main() {
-	go func() {
-		mux := sync.RWMutex{}
-		var wg sync.WaitGroup
+	server := &http.Server{
+		Addr:    ":8081",
+		Handler: http.DefaultServeMux,
+	}
 
-		startPolling(&wg, &mux)
-		startReporting(&wg, &mux)
+	go func() {
+		ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		mux := sync.RWMutex{}
+
+		wg := sync.WaitGroup{}
+
+		// runtime
+		wg.Add(1)
+		go func(ctx context.Context, wg *sync.WaitGroup) {
+			defer wg.Done()
+		infLoop:
+			for {
+				select {
+				case <-ctx.Done():
+					log.Printf("DEBUG. exit from go runtime:")
+					break infLoop
+				default:
+					// go further
+				}
+				func() {
+					mux.Lock()
+					defer mux.Unlock()
+
+					runtime.ReadMemStats(&_stat.MemStats)
+					// custom
+					_stat.PollCount++
+					_stat.RandomValue = rand.Float64()
+				}()
+				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+			}
+		}(ctx, &wg)
+
+		// gopsutil
+		wg.Add(1)
+		go func(ctx context.Context, wg *sync.WaitGroup) {
+			defer wg.Done()
+		infLoop:
+			for {
+				select {
+				case <-ctx.Done():
+					log.Printf("DEBUG. exit from go gopsutil:")
+					break infLoop
+				default:
+					// go further
+				}
+				func() {
+					mux.Lock()
+					defer mux.Unlock()
+
+					v, _ := mem.VirtualMemory()
+					_stat.TotalMemory = v.Total
+					_stat.FreeMemory = v.Free
+					util, err := cpu.Percent(time.Second, true)
+					if err != nil {
+						log.Printf("cpu error: %s", err)
+					}
+					_stat.CPUUtilization = util
+				}()
+				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+			}
+		}(ctx, &wg)
+
+		wg.Add(1)
+		go startReporting(ctx, &mux, &wg)
+
 		wg.Wait()
+		log.Printf("DEBUG. exit from server")
+		if err2 := server.Shutdown(context.Background()); err2 != nil {
+			log.Printf("ERROR. server shutdown error: %s", err2)
+		}
 	}()
 
-	if err := http.ListenAndServe(":8081", nil); err != nil {
-		log.Printf("ERROR. http server returns error: %s", err)
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("http server returns error: %s", err)
 	}
 }
 
-func startPolling(wg *sync.WaitGroup, mux *sync.RWMutex) {
-	wg.Add(1)
-
-	// runtime
-	go func() {
-		defer wg.Done()
-
-		for {
-			func() {
-				mux.Lock()
-				defer mux.Unlock()
-
-				runtime.ReadMemStats(&_stat.MemStats)
-				// custom
-				_stat.PollCount++
-				_stat.RandomValue = rand.Float64()
-			}()
-			time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
-		}
-	}()
-
-	// gopsutil
-	go func() {
-		defer wg.Done()
-
-		for {
-			func() {
-				mux.Lock()
-				defer mux.Unlock()
-
-				v, _ := mem.VirtualMemory()
-				_stat.TotalMemory = v.Total
-				_stat.FreeMemory = v.Free
-				util, err := cpu.Percent(time.Second, true)
-				if err != nil {
-					log.Printf("cpu error: %s", err)
-				}
-				_stat.CPUUtilization = util
-			}()
-			time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
-		}
-	}()
-}
-
 // startReporting запустить сбор и отправку метрик.
-func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
-	wg.Add(1)
+func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	GaugeToSend := []string{
 		"Alloc",
@@ -175,74 +203,79 @@ func startReporting(wg *sync.WaitGroup, mux *sync.RWMutex) {
 		"FreeMemory",
 	}
 
-	go func() {
-		defer wg.Done()
+	httpClient := http.Client{
+		Timeout: 30 * time.Second,
+	}
 
-		httpClient := http.Client{
-			Timeout: 30 * time.Second,
+	sleepDuration := time.Duration(_cfg.ReportInterval) * time.Second
+infLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("DEBUG. exit from go reporting loop")
+			break infLoop
+		default:
+			// go further
 		}
 
-		sleepDuration := time.Duration(_cfg.ReportInterval) * time.Second
-		for {
-			time.Sleep(sleepDuration)
-			log.Printf("sending metrics: %d\n", _stat.PollCount)
+		time.Sleep(sleepDuration)
+		log.Printf("sending metrics: %d\n", _stat.PollCount)
 
-			func() {
-				mux.RLock()
-				defer mux.RUnlock()
+		func() {
+			mux.RLock()
+			defer mux.RUnlock()
 
-				refValue := reflect.ValueOf(_stat)
+			refValue := reflect.ValueOf(_stat)
 
-				metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
+			metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
 
-				for _, gName := range GaugeToSend {
-					f := reflect.Indirect(refValue).FieldByName(gName)
+			for _, gName := range GaugeToSend {
+				f := reflect.Indirect(refValue).FieldByName(gName)
 
-					m := &common.Metrics{
-						ID:    gName,
-						MType: "gauge",
-					}
-					if f.CanInt() {
-						m.Value = common.Float64Ref(float64(f.Int()))
-					} else if f.CanUint() {
-						m.Value = common.Float64Ref(float64(f.Uint()))
-					} else if f.CanFloat() {
-						m.Value = common.Float64Ref(f.Float())
-					} else {
-						log.Printf("failed to get gauge value `%s`", gName)
-						continue
-					}
-
-					metricList = append(metricList, m)
+				m := &common.Metrics{
+					ID:    gName,
+					MType: "gauge",
+				}
+				if f.CanInt() {
+					m.Value = common.Float64Ref(float64(f.Int()))
+				} else if f.CanUint() {
+					m.Value = common.Float64Ref(float64(f.Uint()))
+				} else if f.CanFloat() {
+					m.Value = common.Float64Ref(f.Float())
+				} else {
+					log.Printf("failed to get gauge value `%s`", gName)
+					continue
 				}
 
+				metricList = append(metricList, m)
+			}
+
+			metricList = append(
+				metricList,
+				&common.Metrics{
+					ID:    "PollCount",
+					MType: "counter",
+					Delta: common.Int64Ref(_stat.PollCount),
+				},
+			)
+
+			//gopsutils cpu
+			for i, val := range _stat.CPUUtilization {
 				metricList = append(
 					metricList,
 					&common.Metrics{
-						ID:    "PollCount",
-						MType: "counter",
-						Delta: common.Int64Ref(_stat.PollCount),
+						ID:    fmt.Sprintf("CPUutilization%d", i),
+						MType: "gauge",
+						Value: common.Float64Ref(val),
 					},
 				)
+			}
 
-				//gopsutils cpu
-				for i, val := range _stat.CPUUtilization {
-					metricList = append(
-						metricList,
-						&common.Metrics{
-							ID:    fmt.Sprintf("CPUutilization%d", i),
-							MType: "gauge",
-							Value: common.Float64Ref(val),
-						},
-					)
-				}
-
-				if err := sendMetrics(&httpClient, metricList); err != nil {
-					log.Printf("errors making http request: %s\n", err)
-				}
-			}()
-		}
-	}()
+			if err := sendMetrics(&httpClient, metricList); err != nil {
+				log.Printf("errors making http request: %s\n", err)
+			}
+		}()
+	}
 }
 
 // sendMetrics отправляет мертрики на сервер.

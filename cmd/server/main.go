@@ -93,7 +93,9 @@ func main() {
 	if err := fileStorage.Save(context.TODO()); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
-	fileStorage.Close()
+	if err2 := fileStorage.Close(); err2 != nil {
+		log.Printf("ERROR. failed to close fileStorage: %v", err2)
+	}
 }
 
 func loadPrivateKey(path string) *rsa.PrivateKey {
@@ -163,7 +165,7 @@ func newFileStorage(cfg config.Config) *file.Storage {
 func catchSignal(server *http.Server) {
 	terminateSignals := make(chan os.Signal, 1)
 
-	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
 
 	s := <-terminateSignals
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
