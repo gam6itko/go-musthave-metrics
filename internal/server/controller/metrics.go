@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,18 +39,29 @@ func NewMetricsController(storage storage.IStorage, logger *zap.Logger) *Metrics
 func (ths MetricsController) GetAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 
-	io.WriteString(resp, "<h2>All metrics</h2>")
-
-	io.WriteString(resp, "<h2>Counter</h2>")
-	counterAll, _ := ths.storage.CounterAll(req.Context())
-	for name, val := range counterAll {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
+	if _, err2 := io.WriteString(resp, "<h2>All metrics</h2>"); err2 != nil {
+		log.Fatal(err2)
 	}
 
-	io.WriteString(resp, "<h2>Gauge</h2>")
+	if _, err2 := io.WriteString(resp, "<h2>Counter</h2>"); err2 != nil {
+		log.Fatal(err2)
+	}
+
+	counterAll, _ := ths.storage.CounterAll(req.Context())
+	for name, val := range counterAll {
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val)); err2 != nil {
+			log.Fatal(err2)
+		}
+	}
+
+	if _, err2 := io.WriteString(resp, "<h2>Gauge</h2>"); err2 != nil {
+		log.Fatal(err2)
+	}
 	gaugeAll, _ := ths.storage.GaugeAll(req.Context())
 	for name, val := range gaugeAll {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val)); err2 != nil {
+			log.Fatal(err2)
+		}
 	}
 }
 
@@ -264,7 +276,9 @@ func decodeMetricsBatchRequest(req *http.Request) ([]common.Metrics, error) {
 func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	fmt.Fprintf(w, `{"error":"%s"}`, message)
+	if _, err2 := fmt.Fprintf(w, `{"error":"%s"}`, message); err2 != nil {
+		log.Printf("ERROR. fail to write bytes: %s", err2)
+	}
 }
 
 // persistMetric Сохраняем метрику в хранилище.
@@ -274,10 +288,14 @@ func (ths MetricsController) persistMetric(ctx context.Context, m *common.Metric
 		if *m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		ths.storage.CounterInc(ctx, m.ID, *m.Delta)
+		if err2 := ths.storage.CounterInc(ctx, m.ID, *m.Delta); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	case "gauge":
-		ths.storage.GaugeSet(ctx, m.ID, *m.Value)
+		if err2 := ths.storage.GaugeSet(ctx, m.ID, *m.Value); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	default:
 		return errors.New("invalid m type")
