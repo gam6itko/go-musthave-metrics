@@ -11,8 +11,8 @@ STORE_INTERVAL=300
 FILE_STORAGE_PATH=/tmp/metrics-db.json
 RESTORE=true
 DATABASE_DSN=postgres://postgres:password@172.22.0.2:5432/yp_metrics
-KEY="key"
-CRYPTO_KEY=/tmp/go-musthave-metrics/private.key
+KEY=key
+CRYPTO_KEY=/tmp/go-musthave-metrics/private.pem
 ```
 
 ### get docker ip

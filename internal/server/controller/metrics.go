@@ -212,33 +212,26 @@ func (ths MetricsController) PostUpdateJSONHandler(resp http.ResponseWriter, req
 	}
 }
 
-// PostUpdateBatchJSONHandler обновляет несколько метрик за один запроса.
-func (ths MetricsController) PostUpdateBatchJSONHandler(resp http.ResponseWriter, req *http.Request) {
-	resp.Header().Set("Content-Type", "application/json")
+// PostUpdateBatchJSONHandler обновляет несколько метрик за один запрос.
+func (ths MetricsController) PostUpdateBatchJSONHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	metricList, err := decodeMetricsBatchRequest(req)
 	if err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+		httpErrorJSON(w, err.Error(), http.StatusBadRequest)
 		ths.logger.Warn(err.Error())
 		return
 	}
 
 	for _, m := range metricList {
 		if pErr := ths.persistMetric(req.Context(), &m); pErr != nil {
-			httpErrorJSON(resp, pErr.Error(), http.StatusBadRequest)
+			httpErrorJSON(w, pErr.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	resp.WriteHeader(http.StatusOK)
-	_, err = resp.Write(b)
-	if err != nil {
+	w.WriteHeader(http.StatusOK)
+	if _, err = w.Write([]byte("{}")); err != nil {
 		ths.logger.Error(err.Error())
 	}
 }

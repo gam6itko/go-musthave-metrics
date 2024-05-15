@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
+	cryrand "crypto/rand"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/base64"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"go.uber.org/zap"
@@ -123,7 +123,11 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		r.Body.Close()
+		if err2 := r.Body.Close(); err != nil {
+			Log.Error(err2.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		h := hmac.New(sha256.New, []byte(_key))
 		if _, err := h.Write(bRequestBody); err != nil {
@@ -134,6 +138,7 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 		dst := h.Sum(nil)
 		if !bytes.Equal(hash, dst) {
 			w.WriteHeader(http.StatusBadRequest)
+			Log.Debug("Request sign mismatch")
 			return
 		}
 
@@ -146,7 +151,6 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 
 func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hash := sha512.New()
 		if _rsaPrivateKey == nil {
 			handler.ServeHTTP(w, r)
 			return
@@ -154,7 +158,15 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 
 		defer r.Body.Close()
 
-		b, err := rsautils.DecryptOAEP(hash, r.Body, _rsaPrivateKey, nil, nil)
+		bRequestBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			Log.Error(err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		hash := sha256.New()
+		b, err := rsautils.DecryptOAEP(hash, cryrand.Reader, _rsaPrivateKey, bRequestBody, nil)
 		if err != nil {
 			Log.Error(err.Error())
 			w.WriteHeader(http.StatusBadRequest)
