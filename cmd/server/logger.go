@@ -14,8 +14,8 @@ func init() {
 		panic(err)
 	}
 	defer func() {
-		if err2 := logger.Sync(); err2 != nil {
-			log.Fatal("failed to sync logger", err2)
+		if err := logger.Sync(); err != nil {
+			log.Printf("ERROR. failed to sync logger. %s", err)
 		}
 	}()
 
