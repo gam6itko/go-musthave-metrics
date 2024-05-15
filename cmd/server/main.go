@@ -53,6 +53,9 @@ func main() {
 	if cfg.RSAPrivateKey != "" {
 		_rsaPrivateKey = loadPrivateKey(cfg.RSAPrivateKey)
 	}
+	if cfg.SignKey != "" {
+		_key = cfg.SignKey
+	}
 
 	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
 	if err != nil {
@@ -171,6 +174,7 @@ func catchSignal(server *http.Server) {
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
 	// metrics save
 
-	err := server.Shutdown(context.Background())
-	Log.Info("Error from shutdown", zap.String("error", err.Error()))
+	if err := server.Shutdown(context.Background()); err != nil {
+		Log.Info("Error from shutdown", zap.String("error", err.Error()))
+	}
 }
