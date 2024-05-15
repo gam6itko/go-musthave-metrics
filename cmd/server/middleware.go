@@ -123,7 +123,7 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err2 := r.Body.Close(); err != nil {
+		if err2 := r.Body.Close(); err2 != nil {
 			Log.Error(err2.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
