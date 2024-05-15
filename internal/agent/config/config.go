@@ -61,7 +61,7 @@ func FromFlags() FlagsConfig {
 	flag.Uint64Var(&cfg.ReportInterval, "r", 10, "Report interval")
 	flag.Uint64Var(&cfg.PollInterval, "p", 2, "Poll interval")
 	flag.Uint64Var(&cfg.RateLimit, "l", 0, "Request rate limit")
-	flag.StringVar(&cfg.SignKey, "crypto-key", "", "Public key")
+	flag.StringVar(&cfg.RSAPublicKey, "crypto-key", "", "Public key")
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
 
@@ -117,6 +117,10 @@ func FromEnv() EnvConfig {
 			log.Fatal(err)
 		}
 		c.RateLimit = val
+	}
+
+	if envVal, exists := os.LookupEnv("CRYPTO_KEY"); exists {
+		c.RSAPublicKey = envVal
 	}
 
 	if envVal, exists := os.LookupEnv("CONFIG"); exists {

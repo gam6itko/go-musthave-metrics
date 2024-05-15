@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	cryrand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
@@ -26,7 +25,6 @@ import (
 	"os/signal"
 	"reflect"
 	"runtime"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -151,7 +149,7 @@ func main() {
 		go startReporting(ctx, &mux, &wg)
 
 		wg.Wait()
-		log.Printf("DEBUG. exit from server")
+		log.Printf("DEBUG. stop http server")
 		if err2 := server.Shutdown(context.Background()); err2 != nil {
 			log.Printf("ERROR. server shutdown error: %s", err2)
 		}
@@ -285,77 +283,59 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 		semaphore = sync2.NewSemaphore(_cfg.RateLimit)
 	}
 
-	for _, m := range metricList {
-		oneMetric := m
-		g.Go(func() error {
-			semaphore.Acquire()
-			defer semaphore.Release()
+	g.Go(func() error {
+		semaphore.Acquire()
+		defer semaphore.Release()
 
-			requestBody := bytes.NewBuffer([]byte{})
-			encoder := json.NewEncoder(requestBody)
-			if err := encoder.Encode(metricList); err != nil {
-				return err
-			}
+		requestBody := bytes.NewBuffer([]byte{})
+		encoder := json.NewEncoder(requestBody)
+		if err := encoder.Encode(metricList); err != nil {
+			return err
+		}
 
-			// request send
-			var valueStr string
-			switch oneMetric.MType {
-			case string(common.Counter):
-				valueStr = strconv.FormatInt(*oneMetric.Delta, 10)
-			case string(common.Gauge):
-				valueStr = strconv.FormatFloat(*oneMetric.Value, 'f', 10, 64)
-			default:
-				return errors.New("invalid MType")
-			}
-
-			if _rsaPublicKey != nil {
-				hash := sha512.New()
-				enc, err := rsautils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
-				if err != nil {
-					log.Fatal(err)
-				}
-				requestBody = bytes.NewBuffer(enc)
-			}
-
-			req, err := http.NewRequest(
-				http.MethodPost,
-				fmt.Sprintf(
-					"http://%s/update/%s/%s/%s",
-					_cfg.Address,
-					oneMetric.MType,
-					oneMetric.ID,
-					valueStr,
-				),
-				requestBody,
-			)
+		if _rsaPublicKey != nil {
+			hash := sha256.New()
+			enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, _rsaPublicKey, requestBody.Bytes(), nil)
 			if err != nil {
-				return err
+				log.Fatal(err)
 			}
+			requestBody = bytes.NewBuffer(enc)
+		}
 
-			req.Header.Set("Content-Type", "application/json")
+		req, err := http.NewRequest(
+			http.MethodPost,
+			fmt.Sprintf("http://%s/updates/", _cfg.Address),
+			requestBody,
+		)
+		if err != nil {
+			return err
+		}
 
-			if _cfg.SignKey != "" {
-				// подписываем алгоритмом HMAC, используя SHA-256
-				h := hmac.New(sha256.New, []byte(_cfg.SignKey))
-				if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
-					return wErr
-				}
-				dst := h.Sum(nil)
+		req.Header.Set("Content-Type", "application/json")
 
-				base64Enc := base64.StdEncoding.EncodeToString(dst)
-				req.Header.Set("HashSHA256", base64Enc)
+		if _cfg.SignKey != "" {
+			// подписываем алгоритмом HMAC, используя SHA-256
+			h := hmac.New(sha256.New, []byte(_cfg.SignKey))
+			if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
+				return wErr
 			}
+			dst := h.Sum(nil)
 
-			resp, err := httpClient.Do(req)
-			if err != nil {
-				return err
-			}
+			base64Enc := base64.StdEncoding.EncodeToString(dst)
+			req.Header.Set("HashSHA256", base64Enc)
+		}
 
-			resp.Body.Close()
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
 
-			return nil
-		})
-	}
+		if err2 := resp.Body.Close(); err2 != nil {
+			log.Printf("ERROR. close body: %s", err2)
+		}
+
+		return nil
+	})
 
 	return g.Wait()
 }
