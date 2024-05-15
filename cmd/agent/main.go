@@ -97,15 +97,15 @@ func main() {
 		wg.Add(1)
 		go func(ctx context.Context, wg *sync.WaitGroup) {
 			defer wg.Done()
-		infLoop:
 			for {
 				select {
 				case <-ctx.Done():
 					log.Printf("DEBUG. exit from go runtime:")
-					break infLoop
+					return // exit from goroutine
 				default:
 					// go further
 				}
+
 				func() {
 					mux.Lock()
 					defer mux.Unlock()
@@ -123,12 +123,11 @@ func main() {
 		wg.Add(1)
 		go func(ctx context.Context, wg *sync.WaitGroup) {
 			defer wg.Done()
-		infLoop:
 			for {
 				select {
 				case <-ctx.Done():
 					log.Printf("DEBUG. exit from go gopsutil:")
-					break infLoop
+					return //exit from goroutine
 				default:
 					// go further
 				}
