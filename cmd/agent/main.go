@@ -99,11 +99,10 @@ func main() {
 			defer wg.Done()
 			for {
 				select {
+				default:
 				case <-ctx.Done():
 					log.Printf("DEBUG. exit from go runtime:")
 					return // exit from goroutine
-				default:
-					// go further
 				}
 
 				func() {
@@ -210,11 +209,10 @@ func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) 
 infLoop:
 	for {
 		select {
+		default:
 		case <-ctx.Done():
 			log.Printf("DEBUG. exit from go reporting loop")
 			break infLoop
-		default:
-			// go further
 		}
 
 		time.Sleep(sleepDuration)

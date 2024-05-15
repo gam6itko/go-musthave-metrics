@@ -56,11 +56,11 @@ func main() {
 
 	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	Database = tmpDB
 	if err2 := database.InitSchema(Database); err2 != nil {
-		log.Fatal("Failed to initialize database", err2)
+		log.Fatalf("Failed to initialize database. %s", err2)
 	}
 
 	fileStorage := newFileStorage(cfg)
