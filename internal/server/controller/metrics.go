@@ -39,28 +39,28 @@ func NewMetricsController(storage storage.IStorage, logger *zap.Logger) *Metrics
 func (ths MetricsController) GetAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 
-	if _, err2 := io.WriteString(resp, "<h2>All metrics</h2>"); err2 != nil {
-		log.Fatal(err2)
+	if _, err := io.WriteString(resp, "<h2>All metrics</h2>"); err != nil {
+		log.Fatal(err)
 	}
 
-	if _, err2 := io.WriteString(resp, "<h2>Counter</h2>"); err2 != nil {
-		log.Fatal(err2)
+	if _, err := io.WriteString(resp, "<h2>Counter</h2>"); err != nil {
+		log.Fatal(err)
 	}
 
 	counterAll, _ := ths.storage.CounterAll(req.Context())
 	for name, val := range counterAll {
-		if _, err2 := io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val)); err2 != nil {
-			log.Fatal(err2)
+		if _, err := io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val)); err != nil {
+			log.Fatal(err)
 		}
 	}
 
-	if _, err2 := io.WriteString(resp, "<h2>Gauge</h2>"); err2 != nil {
-		log.Fatal(err2)
+	if _, err := io.WriteString(resp, "<h2>Gauge</h2>"); err != nil {
+		log.Fatal(err)
 	}
 	gaugeAll, _ := ths.storage.GaugeAll(req.Context())
 	for name, val := range gaugeAll {
-		if _, err2 := io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val)); err2 != nil {
-			log.Fatal(err2)
+		if _, err := io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val)); err != nil {
+			log.Fatal(err)
 		}
 	}
 }

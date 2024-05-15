@@ -313,9 +313,9 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 			if _rsaPublicKey != nil {
 				hash := sha512.New()
-				enc, err2 := rsautils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
-				if err2 != nil {
-					log.Fatal(err2)
+				enc, err := rsautils.EncryptOAEP(hash, requestBody, _rsaPublicKey, requestBody.Bytes(), nil)
+				if err != nil {
+					log.Fatal(err)
 				}
 				requestBody = bytes.NewBuffer(enc)
 			}
