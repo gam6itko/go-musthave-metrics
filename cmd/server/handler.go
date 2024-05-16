@@ -1,6 +1,9 @@
 package main
 
-import "net/http"
+import (
+	"log"
+	"net/http"
+)
 
 // getPingHandler метод для проверки работы сервера.
 func getPingHandler(resp http.ResponseWriter, req *http.Request) {
@@ -12,5 +15,7 @@ func getPingHandler(resp http.ResponseWriter, req *http.Request) {
 
 	resp.Header().Set("Content-Type", "text/html")
 	resp.WriteHeader(http.StatusOK)
-	resp.Write([]byte("OK"))
+	if _, err2 := resp.Write([]byte("OK")); err2 != nil {
+		log.Fatal("Failed to write response: ", err2)
+	}
 }

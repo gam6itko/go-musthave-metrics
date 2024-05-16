@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,18 +39,29 @@ func NewMetricsController(storage storage.IStorage, logger *zap.Logger) *Metrics
 func (ths MetricsController) GetAllMetricsHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/html") //iter8 fix
 
-	io.WriteString(resp, "<h2>All metrics</h2>")
-
-	io.WriteString(resp, "<h2>Counter</h2>")
-	counterAll, _ := ths.storage.CounterAll(req.Context())
-	for name, val := range counterAll {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val))
+	if _, err := io.WriteString(resp, "<h2>All metrics</h2>"); err != nil {
+		log.Fatal(err)
 	}
 
-	io.WriteString(resp, "<h2>Gauge</h2>")
+	if _, err := io.WriteString(resp, "<h2>Counter</h2>"); err != nil {
+		log.Fatal(err)
+	}
+
+	counterAll, _ := ths.storage.CounterAll(req.Context())
+	for name, val := range counterAll {
+		if _, err := io.WriteString(resp, fmt.Sprintf("<div>%s: %d</div>", name, val)); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if _, err := io.WriteString(resp, "<h2>Gauge</h2>"); err != nil {
+		log.Fatal(err)
+	}
 	gaugeAll, _ := ths.storage.GaugeAll(req.Context())
 	for name, val := range gaugeAll {
-		io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val))
+		if _, err := io.WriteString(resp, fmt.Sprintf("<div>%s: %f</div>", name, val)); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -68,7 +80,9 @@ func (ths MetricsController) GetValue(resp http.ResponseWriter, req *http.Reques
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
-		io.WriteString(resp, fmt.Sprintf("%d", val))
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("%d", val)); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	case "gauge":
 		val, err := ths.storage.GaugeGet(req.Context(), name)
@@ -76,7 +90,9 @@ func (ths MetricsController) GetValue(resp http.ResponseWriter, req *http.Reques
 			http.Error(resp, "Not found", http.StatusNotFound)
 			return
 		}
-		io.WriteString(resp, fmt.Sprintf("%g", val))
+		if _, err2 := io.WriteString(resp, fmt.Sprintf("%g", val)); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	default:
 		http.Error(resp, "invalid metric type", http.StatusNotFound)
@@ -130,7 +146,9 @@ func (ths MetricsController) PostUpdate(resp http.ResponseWriter, req *http.Requ
 	}
 
 	resp.WriteHeader(http.StatusOK)
-	io.WriteString(resp, "OK")
+	if _, err2 := io.WriteString(resp, "OK"); err2 != nil {
+		log.Printf("ERROR. fail to counter increment: %s", err2)
+	}
 }
 
 // PostValueJSONHandler запрос на получение одной метрики.
@@ -194,33 +212,26 @@ func (ths MetricsController) PostUpdateJSONHandler(resp http.ResponseWriter, req
 	}
 }
 
-// PostUpdateBatchJSONHandler обновляет несколько метрик за один запроса.
-func (ths MetricsController) PostUpdateBatchJSONHandler(resp http.ResponseWriter, req *http.Request) {
-	resp.Header().Set("Content-Type", "application/json")
+// PostUpdateBatchJSONHandler обновляет несколько метрик за один запрос.
+func (ths MetricsController) PostUpdateBatchJSONHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	metricList, err := decodeMetricsBatchRequest(req)
 	if err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusBadRequest)
+		httpErrorJSON(w, err.Error(), http.StatusBadRequest)
 		ths.logger.Warn(err.Error())
 		return
 	}
 
 	for _, m := range metricList {
 		if pErr := ths.persistMetric(req.Context(), &m); pErr != nil {
-			httpErrorJSON(resp, pErr.Error(), http.StatusBadRequest)
+			httpErrorJSON(w, pErr.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		httpErrorJSON(resp, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	resp.WriteHeader(http.StatusOK)
-	_, err = resp.Write(b)
-	if err != nil {
+	w.WriteHeader(http.StatusOK)
+	if _, err = w.Write([]byte("{}")); err != nil {
 		ths.logger.Error(err.Error())
 	}
 }
@@ -264,7 +275,9 @@ func decodeMetricsBatchRequest(req *http.Request) ([]common.Metrics, error) {
 func httpErrorJSON(w http.ResponseWriter, message string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	fmt.Fprintf(w, `{"error":"%s"}`, message)
+	if _, err2 := fmt.Fprintf(w, `{"error":"%s"}`, message); err2 != nil {
+		log.Printf("ERROR. fail to write bytes: %s", err2)
+	}
 }
 
 // persistMetric Сохраняем метрику в хранилище.
@@ -274,10 +287,14 @@ func (ths MetricsController) persistMetric(ctx context.Context, m *common.Metric
 		if *m.Delta < 0 {
 			return errors.New("counter delta must be positive")
 		}
-		ths.storage.CounterInc(ctx, m.ID, *m.Delta)
+		if err2 := ths.storage.CounterInc(ctx, m.ID, *m.Delta); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	case "gauge":
-		ths.storage.GaugeSet(ctx, m.ID, *m.Value)
+		if err2 := ths.storage.GaugeSet(ctx, m.ID, *m.Value); err2 != nil {
+			log.Printf("ERROR. fail to counter increment: %s", err2)
+		}
 
 	default:
 		return errors.New("invalid m type")

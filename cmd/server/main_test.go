@@ -90,11 +90,15 @@ func TestGetValue(t *testing.T) {
 
 	ctx := context.Background()
 	// preset
-	MetricStorage.CounterInc(ctx, "fooCounter", 1)
-	MetricStorage.CounterInc(ctx, "bar_c", 2)
+	err = MetricStorage.CounterInc(ctx, "fooCounter", 1)
+	require.NoError(t, err)
+	err = MetricStorage.CounterInc(ctx, "bar_c", 2)
+	require.NoError(t, err)
 
-	MetricStorage.GaugeSet(ctx, "foo_g", 1.1)
-	MetricStorage.GaugeSet(ctx, "bar_g", 2.2)
+	err = MetricStorage.GaugeSet(ctx, "foo_g", 1.1)
+	require.NoError(t, err)
+	err = MetricStorage.GaugeSet(ctx, "bar_g", 2.2)
+	require.NoError(t, err)
 
 	ts := httptest.NewServer(newRouter())
 	defer ts.Close()

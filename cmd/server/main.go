@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"database/sql"
-	"flag"
 	"fmt"
+	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/config"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
@@ -18,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -30,6 +33,7 @@ import (
 var MetricStorage storage.IStorage
 var Database *sql.DB
 var _key string
+var _rsaPrivateKey *rsa.PrivateKey
 
 var (
 	buildVersion = "N/A"
@@ -44,56 +48,25 @@ func init() {
 }
 
 func main() {
-	var fsConfig = &file.Config{} //create from flags
-	var bindAddr string
-	var dbDsn string
+	cfg := initConfig()
 
-	if envVal, exists := os.LookupEnv("ADDRESS"); exists {
-		bindAddr = envVal
+	if cfg.RSAPrivateKey != "" {
+		_rsaPrivateKey = loadPrivateKey(cfg.RSAPrivateKey)
 	}
-	if envVal, exists := os.LookupEnv("KEY"); exists {
-		_key = envVal
-	}
-	//init db
-	if envVal, exists := os.LookupEnv("DATABASE_DSN"); exists {
-		dbDsn = envVal
+	if cfg.SignKey != "" {
+		_key = cfg.SignKey
 	}
 
-	bindAddrTmp := flag.String("a", "", "Net address host:port")
-	dbDsnTmp := flag.String("d", "", "Database DSN")
-	keyTmp := flag.String("k", "", "Hash key")
-	file.FromFlags(fsConfig, flag.CommandLine)
-	flag.Parse()
-
-	if err := file.FromEnv(fsConfig); err != nil {
-		Log.Fatal(err.Error())
-	}
-
-	if bindAddr == "" {
-		if *bindAddrTmp != "" {
-			bindAddr = *bindAddrTmp
-		} else {
-			bindAddr = "localhost:8080"
-		}
-	}
-	// database open
-	if *dbDsnTmp != "" {
-		dbDsn = *dbDsnTmp
-	}
-	if _key == "" {
-		if *keyTmp != "" {
-			_key = *keyTmp
-		}
-	}
-
-	tmpDB, err := sql.Open("pgx", dbDsn)
+	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	Database = tmpDB
-	database.InitSchema(Database)
+	if err2 := database.InitSchema(Database); err2 != nil {
+		log.Fatalf("Failed to initialize database. %s", err2)
+	}
 
-	fileStorage := newFileStorage(fsConfig)
+	fileStorage := newFileStorage(cfg)
 	MetricStorage = fallback.NewStorage(
 		retrible.NewStorage(
 			database.NewStorage(Database),
@@ -107,13 +80,13 @@ func main() {
 	)
 
 	server := &http.Server{
-		Addr:    bindAddr,
+		Addr:    cfg.Address,
 		Handler: newRouter(),
 	}
 
 	go catchSignal(server)
 
-	Log.Info("Starting server", zap.String("addr", bindAddr))
+	Log.Info("Starting server", zap.String("addr", cfg.Address))
 	if err := server.ListenAndServe(); err != nil {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
@@ -123,7 +96,17 @@ func main() {
 	if err := fileStorage.Save(context.TODO()); err != nil {
 		Log.Error(err.Error(), zap.String("event", "metrics save"))
 	}
-	fileStorage.Close()
+	if err2 := fileStorage.Close(); err2 != nil {
+		log.Printf("ERROR. failed to close fileStorage: %v", err2)
+	}
+}
+
+func loadPrivateKey(path string) *rsa.PrivateKey {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return rsautils.BytesToPrivateKey(b)
 }
 
 func newRouter() chi.Router {
@@ -131,6 +114,7 @@ func newRouter() chi.Router {
 
 	r.Use(requestLoggingMiddleware)
 	r.Use(hashCheckMiddleware)
+	r.Use(rsaDecodeMiddleware)
 	r.Use(compressMiddleware)
 
 	ctrl := controller.NewMetricsController(MetricStorage, Log)
@@ -149,18 +133,18 @@ func newRouter() chi.Router {
 	return r
 }
 
-func newFileStorage(fsConfig *file.Config) *file.Storage {
-	sync := fsConfig.StoreInterval == 0
+func newFileStorage(cfg config.Config) *file.Storage {
+	sync := cfg.StoreInterval == 0
 	fs, err := file.NewStorage(
 		memory.NewStorage(),
-		fsConfig.FileStoragePath,
+		cfg.StoreFile,
 		sync,
 	)
 	if err != nil {
 		Log.Fatal(err.Error())
 	}
 
-	if fsConfig.Restore {
+	if cfg.Restore {
 		if err := fs.Load(); err != nil {
 			Log.Fatal(err.Error())
 		}
@@ -169,9 +153,11 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 	if !sync {
 		// Сохраняем каждые N секунд, если нет флага SYNC
 		go func() {
-			ticker := time.NewTicker(time.Duration(fsConfig.StoreInterval) * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.StoreInterval) * time.Second)
 			for range ticker.C {
-				fs.Save(context.TODO()) // грязновато, по идее нужно делать какой-то bridge-saver
+				if err2 := fs.Save(context.TODO()); err != nil { // грязновато, по идее нужно делать какой-то bridge-saver
+					log.Fatal("Failed to save file", err2)
+				}
 			}
 		}()
 	}
@@ -182,12 +168,13 @@ func newFileStorage(fsConfig *file.Config) *file.Storage {
 func catchSignal(server *http.Server) {
 	terminateSignals := make(chan os.Signal, 1)
 
-	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
 
 	s := <-terminateSignals
 	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
 	// metrics save
 
-	err := server.Shutdown(context.Background())
-	Log.Info("Error from shutdown", zap.String("error", err.Error()))
+	if err := server.Shutdown(context.Background()); err != nil {
+		Log.Info("Error from shutdown", zap.String("error", err.Error()))
+	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"go.uber.org/zap"
+	"log"
 )
 
 var Log *zap.Logger = zap.NewNop()
@@ -12,7 +13,11 @@ func init() {
 		// вызываем панику, если ошибка
 		panic(err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			log.Printf("ERROR. failed to sync logger. %s", err)
+		}
+	}()
 
 	Log = logger
 }
