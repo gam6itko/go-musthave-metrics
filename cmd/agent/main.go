@@ -17,6 +17,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 	"golang.org/x/sync/errgroup"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -334,8 +335,18 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 			return err
 		}
 
-		if err2 := resp.Body.Close(); err2 != nil {
-			log.Printf("ERROR. close body: %s", err2)
+		defer func() {
+			if err = resp.Body.Close(); err != nil {
+				log.Printf("ERROR. close body: %s", err)
+			}
+		}()
+
+		if resp.StatusCode != http.StatusOK {
+			bMsg, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			log.Printf("WARNING. status is not 200. Body: %s", string(bMsg))
 		}
 
 		return nil

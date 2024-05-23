@@ -101,6 +101,9 @@ func FromEnv() EnvConfig {
 	if envVal, exists := os.LookupEnv("KEY"); exists {
 		c.SignKey = envVal
 	}
+	if envVal, exists := os.LookupEnv("X_REAL_IP"); exists {
+		c.XRealIP = envVal
+	}
 
 	// uint
 	if envVal, exists := os.LookupEnv("POLL_INTERVAL"); exists {

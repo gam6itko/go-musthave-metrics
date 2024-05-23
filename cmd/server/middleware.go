@@ -152,7 +152,7 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 }
 
 func rsaDecodeMiddleware(handler http.Handler) http.Handler {
-	if Cfg.RSAPrivateKey != "" {
+	if Cfg.RSAPrivateKey == "" {
 		return handler
 	}
 
