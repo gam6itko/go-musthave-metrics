@@ -32,8 +32,7 @@ import (
 // TODO: bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.IStorage
 var Database *sql.DB
-var _key string
-var _rsaPrivateKey *rsa.PrivateKey
+var Cfg config.Config
 
 var (
 	buildVersion = "N/A"
@@ -48,16 +47,9 @@ func init() {
 }
 
 func main() {
-	cfg := initConfig()
+	Cfg = initConfig()
 
-	if cfg.RSAPrivateKey != "" {
-		_rsaPrivateKey = loadPrivateKey(cfg.RSAPrivateKey)
-	}
-	if cfg.SignKey != "" {
-		_key = cfg.SignKey
-	}
-
-	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
+	tmpDB, err := sql.Open("pgx", Cfg.DatabaseDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +58,7 @@ func main() {
 		log.Fatalf("Failed to initialize database. %s", err2)
 	}
 
-	fileStorage := newFileStorage(cfg)
+	fileStorage := newFileStorage(Cfg)
 	MetricStorage = fallback.NewStorage(
 		retrible.NewStorage(
 			database.NewStorage(Database),
@@ -80,13 +72,13 @@ func main() {
 	)
 
 	server := &http.Server{
-		Addr:    cfg.Address,
+		Addr:    Cfg.Address,
 		Handler: newRouter(),
 	}
 
 	go catchSignal(server)
 
-	Log.Info("Starting server", zap.String("addr", cfg.Address))
+	Log.Info("Starting server", zap.String("addr", Cfg.Address))
 	if err := server.ListenAndServe(); err != nil {
 		// записываем в лог ошибку, если сервер не запустился
 		Log.Info(err.Error(), zap.String("event", "start server"))
@@ -113,6 +105,7 @@ func newRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(requestLoggingMiddleware)
+	r.Use(trustedSubnetMiddleware)
 	r.Use(hashCheckMiddleware)
 	r.Use(rsaDecodeMiddleware)
 	r.Use(compressMiddleware)

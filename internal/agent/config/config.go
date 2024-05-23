@@ -23,6 +23,9 @@ type Config struct {
 	PollInterval uint64 `json:"poll_interval"`
 
 	RateLimit uint64
+
+	// Имитация определенного клиентского IP
+	XRealIP string `json:"x-real-ip"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -36,6 +39,9 @@ func (ths *Config) Merge(donor Config) {
 	}
 	if donor.SignKey != "" {
 		ths.SignKey = donor.SignKey
+	}
+	if donor.XRealIP != "" {
+		ths.XRealIP = donor.XRealIP
 	}
 	// int
 	if donor.ReportInterval != 0 {
@@ -64,6 +70,7 @@ func FromFlags() FlagsConfig {
 	flag.StringVar(&cfg.RSAPublicKey, "crypto-key", "", "Public key")
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
+	flag.StringVar(&cfg.XRealIP, "ip", "", "Set X-Real-IP header")
 
 	var configPathShort string
 	flag.StringVar(&configPathShort, "c", "", "Config path short alias")

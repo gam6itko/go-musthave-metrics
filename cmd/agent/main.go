@@ -43,9 +43,9 @@ type metrics struct {
 	runtime.MemStats
 }
 
-var _cfg config.Config
-var _stat metrics
-var _rsaPublicKey *rsa.PublicKey
+var AppConfig config.Config
+var Stat metrics
+var RSAPublicKey *rsa.PublicKey
 
 var (
 	buildVersion = "N/A"
@@ -58,13 +58,13 @@ func init() {
 	fmt.Printf("Build date: %s\n", buildDate)
 	fmt.Printf("Build commit: %s\n", buildCommit)
 
-	_cfg = initConfig()
+	AppConfig = initConfig()
 
-	if _cfg.RSAPublicKey != "" {
-		_rsaPublicKey = loadPublicKey(_cfg.RSAPublicKey)
+	if AppConfig.RSAPublicKey != "" {
+		RSAPublicKey = loadPublicKey(AppConfig.RSAPublicKey)
 	}
 
-	_stat = metrics{
+	Stat = metrics{
 		PollCount: 0,
 	}
 }
@@ -107,12 +107,12 @@ func main() {
 					mux.Lock()
 					defer mux.Unlock()
 
-					runtime.ReadMemStats(&_stat.MemStats)
+					runtime.ReadMemStats(&Stat.MemStats)
 					// custom
-					_stat.PollCount++
-					_stat.RandomValue = rand.Float64()
+					Stat.PollCount++
+					Stat.RandomValue = rand.Float64()
 				}()
-				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+				time.Sleep(time.Duration(AppConfig.PollInterval) * time.Second)
 			}
 		}(ctx, &wg)
 
@@ -133,15 +133,15 @@ func main() {
 					defer mux.Unlock()
 
 					v, _ := mem.VirtualMemory()
-					_stat.TotalMemory = v.Total
-					_stat.FreeMemory = v.Free
+					Stat.TotalMemory = v.Total
+					Stat.FreeMemory = v.Free
 					util, err := cpu.Percent(time.Second, true)
 					if err != nil {
 						log.Printf("cpu error: %s", err)
 					}
-					_stat.CPUUtilization = util
+					Stat.CPUUtilization = util
 				}()
-				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+				time.Sleep(time.Duration(AppConfig.PollInterval) * time.Second)
 			}
 		}(ctx, &wg)
 
@@ -203,7 +203,7 @@ func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) 
 		Timeout: 30 * time.Second,
 	}
 
-	sleepDuration := time.Duration(_cfg.ReportInterval) * time.Second
+	sleepDuration := time.Duration(AppConfig.ReportInterval) * time.Second
 infLoop:
 	for {
 		select {
@@ -214,13 +214,13 @@ infLoop:
 		}
 
 		time.Sleep(sleepDuration)
-		log.Printf("sending metrics: %d\n", _stat.PollCount)
+		log.Printf("sending metrics: %d\n", Stat.PollCount)
 
 		func() {
 			mux.RLock()
 			defer mux.RUnlock()
 
-			refValue := reflect.ValueOf(_stat)
+			refValue := reflect.ValueOf(Stat)
 
 			metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
 
@@ -250,12 +250,12 @@ infLoop:
 				&common.Metrics{
 					ID:    "PollCount",
 					MType: "counter",
-					Delta: common.Int64Ref(_stat.PollCount),
+					Delta: common.Int64Ref(Stat.PollCount),
 				},
 			)
 
 			//gopsutils cpu
-			for i, val := range _stat.CPUUtilization {
+			for i, val := range Stat.CPUUtilization {
 				metricList = append(
 					metricList,
 					&common.Metrics{
@@ -273,14 +273,14 @@ infLoop:
 	}
 }
 
-// sendMetrics отправляет мертрики на сервер.
+// sendMetrics отправляет метрики на сервер.
 func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 	g := new(errgroup.Group)
 
 	var semaphore sync2.ISemaphore
 	semaphore = &sync2.NullSemaphore{}
-	if _cfg.RateLimit > 0 {
-		semaphore = sync2.NewSemaphore(_cfg.RateLimit)
+	if AppConfig.RateLimit > 0 {
+		semaphore = sync2.NewSemaphore(AppConfig.RateLimit)
 	}
 
 	g.Go(func() error {
@@ -293,9 +293,10 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 			return err
 		}
 
-		if _rsaPublicKey != nil {
+		//todo middleware
+		if RSAPublicKey != nil {
 			hash := sha256.New()
-			enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, _rsaPublicKey, requestBody.Bytes(), nil)
+			enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, RSAPublicKey, requestBody.Bytes(), nil)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -304,7 +305,7 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 
 		req, err := http.NewRequest(
 			http.MethodPost,
-			fmt.Sprintf("http://%s/updates/", _cfg.Address),
+			fmt.Sprintf("http://%s/updates/", AppConfig.Address),
 			requestBody,
 		)
 		if err != nil {
@@ -312,10 +313,13 @@ func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
 		}
 
 		req.Header.Set("Content-Type", "application/json")
+		if AppConfig.XRealIP != "" {
+			req.Header.Set("X-Real-IP", AppConfig.XRealIP)
+		}
 
-		if _cfg.SignKey != "" {
+		if AppConfig.SignKey != "" {
 			// подписываем алгоритмом HMAC, используя SHA-256
-			h := hmac.New(sha256.New, []byte(_cfg.SignKey))
+			h := hmac.New(sha256.New, []byte(AppConfig.SignKey))
 			if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
 				return wErr
 			}

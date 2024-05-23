@@ -28,6 +28,8 @@ type Config struct {
 
 	// Restore - загружать или нет ранее сохранённые значения из указанного файла при старте сервера.
 	Restore bool `json:"restore,omitempty"`
+
+	TrustedSubnet string `json:"trusted_subnet,omitempty"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -52,6 +54,9 @@ func (ths *Config) Merge(donor Config) {
 	if donor.SignKey != "" {
 		ths.SignKey = donor.SignKey
 	}
+	if donor.TrustedSubnet != "" {
+		ths.TrustedSubnet = donor.TrustedSubnet
+	}
 	// int
 	if donor.StoreInterval != 0 {
 		ths.StoreInterval = donor.StoreInterval
@@ -69,6 +74,7 @@ func FromFlags() FlagsConfig {
 	flag.BoolVar(&cfg.Restore, "r", true, "Restore metrics from file storage")
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
+	flag.StringVar(&cfg.TrustedSubnet, "t", "", "Trusted subnets. CIDR")
 
 	var configPathShort string
 	flag.StringVar(&configPathShort, "c", "", "Config path short alias")
@@ -108,6 +114,9 @@ func FromEnv() EnvConfig {
 	}
 	if envVal, exists := os.LookupEnv("CRYPTO_KEY"); exists {
 		c.RSAPrivateKey = envVal
+	}
+	if envVal, exists := os.LookupEnv("TRUSTED_SUBNET"); exists {
+		c.TrustedSubnet = envVal
 	}
 
 	if envVal, exists := os.LookupEnv("STORE_INTERVAL"); exists {

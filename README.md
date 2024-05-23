@@ -13,6 +13,7 @@ RESTORE=true
 DATABASE_DSN=postgres://postgres:password@172.22.0.2:5432/yp_metrics
 KEY=key
 CRYPTO_KEY=/tmp/go-musthave-metrics/private.pem
+TRUSTED_SUBNET=192.168.0.0/24
 ```
 
 ### get docker ip
@@ -31,6 +32,7 @@ POLL_INTERVAL=2
 KEY="abc"
 RATE_LIMIT=4
 CRYPTO_KEY=/tmp/go-musthave-metrics/public.key
+X_REAL_IP=192.168.1.1
 ```
 
 # sprint
