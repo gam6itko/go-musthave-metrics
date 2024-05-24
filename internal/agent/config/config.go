@@ -9,6 +9,15 @@ import (
 )
 
 type Config struct {
+	// аналог переменной окружения REPORT_INTERVAL или флага -r
+	ReportInterval uint64 `json:"report_interval"`
+	// аналог переменной окружения POLL_INTERVAL или флага -p
+	PollInterval uint64 `json:"poll_interval"`
+
+	RateLimit uint64
+
+	//// HTTP client
+
 	// аналог переменной окружения ADDRESS или флага -a
 	Address string `json:"address"`
 
@@ -17,15 +26,12 @@ type Config struct {
 
 	SignKey string
 
-	// аналог переменной окружения REPORT_INTERVAL или флага -r
-	ReportInterval uint64 `json:"report_interval"`
-	// аналог переменной окружения POLL_INTERVAL или флага -p
-	PollInterval uint64 `json:"poll_interval"`
-
-	RateLimit uint64
-
 	// Имитация определенного клиентского IP
 	XRealIP string `json:"x-real-ip"`
+
+	//// gRPC client
+
+	GRPCEnabled bool `json:"jrpc"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -53,7 +59,6 @@ func (ths *Config) Merge(donor Config) {
 }
 
 type FlagsConfig struct {
-
 	// -c / -config
 	ConfigPath string
 

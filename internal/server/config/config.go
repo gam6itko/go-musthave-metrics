@@ -10,26 +10,33 @@ import (
 )
 
 type Config struct {
-	// Address of http server.
-	Address string `json:"address,omitempty"`
-
 	// StoreFile - полное имя файла, куда сохраняются текущие значения.
 	StoreFile string `json:"store_file,omitempty"`
 
+	// StoreInterval - интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск.
+	StoreInterval uint64 `json:"store_interval,omitempty"`
+
 	DatabaseDSN string `json:"database_dsn,omitempty"`
+
+	// Restore - загружать или нет ранее сохранённые значения из указанного файла при старте сервера.
+	Restore bool `json:"restore,omitempty"`
+
+	//// HTTP server
+
+	// Address of http server.
+	Address string `json:"address,omitempty"`
+
+	TrustedSubnet string `json:"trusted_subnet,omitempty"`
 
 	// RSAPrivateKey stores RSA private key.
 	RSAPrivateKey string `json:"crypto_key"`
 
 	SignKey string
 
-	// StoreInterval - интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск.
-	StoreInterval uint64 `json:"store_interval,omitempty"`
+	//// gRPC client
 
-	// Restore - загружать или нет ранее сохранённые значения из указанного файла при старте сервера.
-	Restore bool `json:"restore,omitempty"`
-
-	TrustedSubnet string `json:"trusted_subnet,omitempty"`
+	// Запустить gRPC сервер на указанном адресе.
+	GRPCAddress string `json:"jrpc_address,omitempty"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -61,6 +68,9 @@ func (ths *Config) Merge(donor Config) {
 	if donor.StoreInterval != 0 {
 		ths.StoreInterval = donor.StoreInterval
 	}
+	if donor.GRPCAddress != "" {
+		ths.GRPCAddress = donor.GRPCAddress
+	}
 }
 
 func FromFlags() FlagsConfig {
@@ -75,6 +85,8 @@ func FromFlags() FlagsConfig {
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
 	flag.StringVar(&cfg.TrustedSubnet, "t", "", "Trusted subnets. CIDR")
+
+	flag.StringVar(&cfg.TrustedSubnet, "grpc", "", "Start gRPC server on address")
 
 	var configPathShort string
 	flag.StringVar(&configPathShort, "c", "", "Config path short alias")
@@ -117,6 +129,9 @@ func FromEnv() EnvConfig {
 	}
 	if envVal, exists := os.LookupEnv("TRUSTED_SUBNET"); exists {
 		c.TrustedSubnet = envVal
+	}
+	if envVal, exists := os.LookupEnv("GRPC_ADDRESS"); exists {
+		c.GRPCAddress = envVal
 	}
 
 	if envVal, exists := os.LookupEnv("STORE_INTERVAL"); exists {
