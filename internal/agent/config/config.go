@@ -31,7 +31,7 @@ type Config struct {
 
 	//// gRPC client
 
-	GRPCEnabled bool `json:"jrpc"`
+	UseGRPC bool `json:"use_jrpc"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -56,6 +56,10 @@ func (ths *Config) Merge(donor Config) {
 	if donor.PollInterval != 0 {
 		ths.PollInterval = donor.PollInterval
 	}
+
+	if donor.UseGRPC {
+		ths.UseGRPC = donor.UseGRPC
+	}
 }
 
 type FlagsConfig struct {
@@ -76,6 +80,7 @@ func FromFlags() FlagsConfig {
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
 	flag.StringVar(&cfg.XRealIP, "ip", "", "Set X-Real-IP header")
+	flag.BoolVar(&cfg.UseGRPC, "use-grpc", false, "Use gRPC client instead of HTTP client")
 
 	var configPathShort string
 	flag.StringVar(&configPathShort, "c", "", "Config path short alias")
@@ -108,6 +113,13 @@ func FromEnv() EnvConfig {
 	}
 	if envVal, exists := os.LookupEnv("X_REAL_IP"); exists {
 		c.XRealIP = envVal
+	}
+	if envVal, exists := os.LookupEnv("USE_GRPC"); exists {
+		boolVal, err := strconv.ParseBool(envVal)
+		if err != nil {
+			log.Fatal(err)
+		}
+		c.UseGRPC = boolVal
 	}
 
 	// uint

@@ -2,28 +2,25 @@ package sender
 
 import (
 	"bytes"
-	"crypto/hmac"
-	cryrand "crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	http2 "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
-	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"io"
 	"log"
 	"net/http"
 )
 
 type HTTPSender struct {
-	client    *http.Client
-	address   string
-	publicKey *rsa.PublicKey
+	httpClient http2.IClient
+	address    string
 }
 
-func NewHTTPSender(client *http.Client) *HTTPSender {
-	return &HTTPSender{client: client}
+func NewHTTPSender(client http2.IClient, address string) *HTTPSender {
+	return &HTTPSender{
+		httpClient: client,
+		address:    address,
+	}
 }
 
 func (ths HTTPSender) Send(metricList []*common.Metrics) error {
@@ -31,16 +28,6 @@ func (ths HTTPSender) Send(metricList []*common.Metrics) error {
 	encoder := json.NewEncoder(requestBody)
 	if err := encoder.Encode(metricList); err != nil {
 		return err
-	}
-
-	//todo middleware
-	if ths.publicKey != nil {
-		hash := sha256.New()
-		enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, ths.publicKey, requestBody.Bytes(), nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		requestBody = bytes.NewBuffer(enc)
 	}
 
 	req, err := http.NewRequest(
@@ -53,23 +40,8 @@ func (ths HTTPSender) Send(metricList []*common.Metrics) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if AppConfig.XRealIP != "" {
-		req.Header.Set("X-Real-IP", AppConfig.XRealIP)
-	}
 
-	if AppConfig.SignKey != "" {
-		// подписываем алгоритмом HMAC, используя SHA-256
-		h := hmac.New(sha256.New, []byte(AppConfig.SignKey))
-		if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
-			return wErr
-		}
-		dst := h.Sum(nil)
-
-		base64Enc := base64.StdEncoding.EncodeToString(dst)
-		req.Header.Set("HashSHA256", base64Enc)
-	}
-
-	resp, err := httpClient.Do(req)
+	resp, err := ths.httpClient.Do(req)
 	if err != nil {
 		return err
 	}

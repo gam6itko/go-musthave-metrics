@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/rsa"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
+	http2 "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/sender"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
@@ -13,6 +13,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -39,7 +40,6 @@ type metrics struct {
 
 var AppConfig config.Config
 var Stat metrics
-var RSAPublicKey *rsa.PublicKey
 
 var (
 	buildVersion = "N/A"
@@ -54,22 +54,9 @@ func init() {
 
 	AppConfig = initConfig()
 
-	if AppConfig.RSAPublicKey != "" {
-		RSAPublicKey = loadPublicKey(AppConfig.RSAPublicKey)
-	}
-
 	Stat = metrics{
 		PollCount: 0,
 	}
-}
-
-// loadPublicKey загружает publicKey из файла.
-func loadPublicKey(path string) *rsa.PublicKey {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return rsautils.BytesToPublicKey(b)
 }
 
 func main() {
@@ -160,18 +147,16 @@ func main() {
 func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metrics {
 	ch := make(chan []*common.Metrics)
 
-	var sndr sender.ISender
-	if AppConfig.GRPCEnabled {
-		sndr = sender.NewGRPCSender()
+	var s sender.ISender
+	if AppConfig.UseGRPC {
+		s = sender.NewGRPCSender(AppConfig.Address)
 	} else {
-		httpClient := &http.Client{
-			Timeout: 30 * time.Second,
-		}
-		sndr = sender.NewHTTPSender(httpClient)
+		httpClient := buildHTTPClient()
+		s = sender.NewHTTPSender(httpClient, AppConfig.Address)
 	}
 
 	wg.Add(1)
-	go func(sender sender.ISender) {
+	go func(s sender.ISender) {
 		defer wg.Done()
 
 		var semaphore sync2.ISemaphore
@@ -184,7 +169,7 @@ func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metri
 			select {
 			default:
 			case <-ctx.Done():
-				log.Printf("DEBUG. exit from HTTP sndr")
+				log.Printf("DEBUG. exit from HTTP s")
 				return // exit from goroutine
 			}
 
@@ -192,14 +177,43 @@ func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metri
 				semaphore.Acquire()
 				defer semaphore.Release()
 
-				if err := sender.Send(metricList); err != nil {
+				if err := s.Send(metricList); err != nil {
 					log.Printf("Failed to send metrics: %v", err)
 				}
 			}(metricList)
 		}
-	}(sndr)
+	}(s)
 
 	return ch
+}
+
+func buildHTTPClient() http2.IClient {
+	var client http2.IClient
+	client = &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	if AppConfig.RSAPublicKey != "" {
+		b, err := os.ReadFile(AppConfig.RSAPublicKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+		client = http2.NewEncryptDecorator(client, rsautils.BytesToPublicKey(b))
+	}
+
+	if AppConfig.XRealIP != "" {
+		ip := net.ParseIP(AppConfig.XRealIP)
+		if ip == nil {
+			log.Fatalf("Invalid XRealIP string %s", AppConfig.XRealIP)
+		}
+		client = http2.NewXRealIPDecorator(client, ip)
+	}
+
+	if AppConfig.SignKey != "" {
+		client = http2.NewSignDecorator(client, AppConfig.SignKey)
+	}
+
+	return client
 }
 
 // startReporting запустить сбор и отправку метрик.
