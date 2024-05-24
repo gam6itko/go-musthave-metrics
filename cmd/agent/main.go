@@ -1,23 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	cryrand "crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
+	"github.com/gam6itko/go-musthave-metrics/internal/agent/sender"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"golang.org/x/sync/errgroup"
-	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -147,9 +140,11 @@ func main() {
 		}(ctx, &wg)
 
 		wg.Add(1)
-		go startReporting(ctx, &mux, &wg)
+		ch := initSending(ctx, &wg)
+		go startReporting(ctx, &mux, &wg, ch)
 
 		wg.Wait()
+
 		log.Printf("DEBUG. stop http server")
 		if err2 := server.Shutdown(context.Background()); err2 != nil {
 			log.Printf("ERROR. server shutdown error: %s", err2)
@@ -161,11 +156,57 @@ func main() {
 	}
 }
 
+// initSending создаёт и прослушивает канал для отправки метрик.
+func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metrics {
+	ch := make(chan []*common.Metrics)
+
+	var sndr sender.ISender
+	if AppConfig.GRPCEnabled {
+		sndr = sender.NewGRPCSender()
+	} else {
+		httpClient := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+		sndr = sender.NewHTTPSender(httpClient)
+	}
+
+	wg.Add(1)
+	go func(sender sender.ISender) {
+		defer wg.Done()
+
+		var semaphore sync2.ISemaphore
+		semaphore = &sync2.NullSemaphore{}
+		if AppConfig.RateLimit > 0 {
+			semaphore = sync2.NewSemaphore(AppConfig.RateLimit)
+		}
+
+		for metricList := range ch {
+			select {
+			default:
+			case <-ctx.Done():
+				log.Printf("DEBUG. exit from HTTP sndr")
+				return // exit from goroutine
+			}
+
+			go func(metricList []*common.Metrics) {
+				semaphore.Acquire()
+				defer semaphore.Release()
+
+				if err := sender.Send(metricList); err != nil {
+					log.Printf("Failed to send metrics: %v", err)
+				}
+			}(metricList)
+		}
+	}(sndr)
+
+	return ch
+}
+
 // startReporting запустить сбор и отправку метрик.
-func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) {
+func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup, ch chan<- []*common.Metrics) {
 	defer wg.Done()
 
-	GaugeToSend := []string{
+	gaugeToSend := []string{
 		"Alloc",
 		"BuckHashSys",
 		"Frees",
@@ -200,10 +241,6 @@ func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) 
 		"FreeMemory",
 	}
 
-	httpClient := http.Client{
-		Timeout: 30 * time.Second,
-	}
-
 	sleepDuration := time.Duration(AppConfig.ReportInterval) * time.Second
 infLoop:
 	for {
@@ -217,15 +254,15 @@ infLoop:
 		time.Sleep(sleepDuration)
 		log.Printf("sending metrics: %d\n", Stat.PollCount)
 
-		func() {
+		ch <- func() []*common.Metrics {
 			mux.RLock()
 			defer mux.RUnlock()
 
 			refValue := reflect.ValueOf(Stat)
 
-			metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
+			metricList := make([]*common.Metrics, 0, len(gaugeToSend)+2)
 
-			for _, gName := range GaugeToSend {
+			for _, gName := range gaugeToSend {
 				f := reflect.Indirect(refValue).FieldByName(gName)
 
 				m := &common.Metrics{
@@ -267,90 +304,7 @@ infLoop:
 				)
 			}
 
-			if err := sendMetrics(&httpClient, metricList); err != nil {
-				log.Printf("errors making http request: %s\n", err)
-			}
+			return metricList
 		}()
 	}
-}
-
-// sendMetrics отправляет метрики на сервер.
-func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
-	g := new(errgroup.Group)
-
-	var semaphore sync2.ISemaphore
-	semaphore = &sync2.NullSemaphore{}
-	if AppConfig.RateLimit > 0 {
-		semaphore = sync2.NewSemaphore(AppConfig.RateLimit)
-	}
-
-	g.Go(func() error {
-		semaphore.Acquire()
-		defer semaphore.Release()
-
-		requestBody := bytes.NewBuffer([]byte{})
-		encoder := json.NewEncoder(requestBody)
-		if err := encoder.Encode(metricList); err != nil {
-			return err
-		}
-
-		//todo middleware
-		if RSAPublicKey != nil {
-			hash := sha256.New()
-			enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, RSAPublicKey, requestBody.Bytes(), nil)
-			if err != nil {
-				log.Fatal(err)
-			}
-			requestBody = bytes.NewBuffer(enc)
-		}
-
-		req, err := http.NewRequest(
-			http.MethodPost,
-			fmt.Sprintf("http://%s/updates/", AppConfig.Address),
-			requestBody,
-		)
-		if err != nil {
-			return err
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		if AppConfig.XRealIP != "" {
-			req.Header.Set("X-Real-IP", AppConfig.XRealIP)
-		}
-
-		if AppConfig.SignKey != "" {
-			// подписываем алгоритмом HMAC, используя SHA-256
-			h := hmac.New(sha256.New, []byte(AppConfig.SignKey))
-			if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
-				return wErr
-			}
-			dst := h.Sum(nil)
-
-			base64Enc := base64.StdEncoding.EncodeToString(dst)
-			req.Header.Set("HashSHA256", base64Enc)
-		}
-
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			return err
-		}
-
-		defer func() {
-			if err = resp.Body.Close(); err != nil {
-				log.Printf("ERROR. close body: %s", err)
-			}
-		}()
-
-		if resp.StatusCode != http.StatusOK {
-			bMsg, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			log.Printf("WARNING. status is not 200. Body: %s", string(bMsg))
-		}
-
-		return nil
-	})
-
-	return g.Wait()
 }
