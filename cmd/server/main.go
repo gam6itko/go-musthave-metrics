@@ -30,7 +30,6 @@ import (
 	"time"
 )
 
-// TODO: bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.IStorage
 var Database *sql.DB
 var Cfg config.Config

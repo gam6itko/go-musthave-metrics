@@ -1,7 +1,10 @@
 package sender
 
-import "github.com/gam6itko/go-musthave-metrics/internal/common"
+import (
+	"context"
+	"github.com/gam6itko/go-musthave-metrics/internal/common"
+)
 
 type ISender interface {
-	Send([]*common.Metrics) error
+	Send(context.Context, []*common.Metrics) error
 }

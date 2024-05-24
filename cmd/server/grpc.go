@@ -24,7 +24,9 @@ func runGRPCServer(ctx context.Context, wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(grpc2.RequestLoggingInterceptor),
+	)
 	proto.RegisterMetricsServer(server, grpc2.NewMetricsServerImpl(MetricStorage))
 
 	go func() {

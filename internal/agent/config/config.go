@@ -72,7 +72,7 @@ type FlagsConfig struct {
 func FromFlags() FlagsConfig {
 	cfg := FlagsConfig{}
 
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "Server address host:port")
+	flag.StringVar(&cfg.Address, "a", "", "Server address host:port")
 	flag.Uint64Var(&cfg.ReportInterval, "r", 10, "Report interval")
 	flag.Uint64Var(&cfg.PollInterval, "p", 2, "Poll interval")
 	flag.Uint64Var(&cfg.RateLimit, "l", 0, "Request rate limit")

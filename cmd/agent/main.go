@@ -11,6 +11,8 @@ import (
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"math/rand"
 	"net"
@@ -149,10 +151,21 @@ func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metri
 
 	var s sender.ISender
 	if AppConfig.UseGRPC {
-		s = sender.NewGRPCSender(AppConfig.Address)
+		// устанавливаем соединение с сервером
+		conn, err := grpc.NewClient(
+			AppConfig.Address,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//todo close connection
+		s = sender.NewGRPCSender(conn)
+		log.Printf("DEBUG. Use gRPC sender for address %s", AppConfig.Address)
 	} else {
 		httpClient := buildHTTPClient()
 		s = sender.NewHTTPSender(httpClient, AppConfig.Address)
+		log.Printf("DEBUG. Use HTTP sender for address %s", AppConfig.Address)
 	}
 
 	wg.Add(1)
@@ -177,7 +190,7 @@ func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metri
 				semaphore.Acquire()
 				defer semaphore.Release()
 
-				if err := s.Send(metricList); err != nil {
+				if err := s.Send(ctx, metricList); err != nil {
 					log.Printf("Failed to send metrics: %v", err)
 				}
 			}(metricList)
@@ -266,7 +279,7 @@ infLoop:
 		}
 
 		time.Sleep(sleepDuration)
-		log.Printf("sending metrics: %d\n", Stat.PollCount)
+		log.Printf("DEBUG. sending metrics: %d\n", Stat.PollCount)
 
 		ch <- func() []*common.Metrics {
 			mux.RLock()

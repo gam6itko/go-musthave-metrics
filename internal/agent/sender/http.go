@@ -2,6 +2,7 @@ package sender
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	http2 "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
@@ -23,7 +24,7 @@ func NewHTTPSender(client http2.IClient, address string) *HTTPSender {
 	}
 }
 
-func (ths HTTPSender) Send(metricList []*common.Metrics) error {
+func (ths HTTPSender) Send(ctx context.Context, metricList []*common.Metrics) error {
 	requestBody := bytes.NewBuffer([]byte{})
 	encoder := json.NewEncoder(requestBody)
 	if err := encoder.Encode(metricList); err != nil {
@@ -41,7 +42,7 @@ func (ths HTTPSender) Send(metricList []*common.Metrics) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := ths.httpClient.Do(req)
+	resp, err := ths.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return err
 	}
