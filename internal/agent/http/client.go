@@ -57,6 +57,9 @@ func (ths SignDecorator) Do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = req.Body.Close(); err != nil {
+		return nil, err
+	}
 
 	// подписываем алгоритмом HMAC, используя SHA-256
 	h := hmac.New(sha256.New, []byte(ths.sign))
@@ -65,8 +68,8 @@ func (ths SignDecorator) Do(req *http.Request) (*http.Response, error) {
 	}
 	dst := h.Sum(nil)
 
-	base64Enc := base64.StdEncoding.EncodeToString(dst)
-	req.Header.Set("HashSHA256", base64Enc)
+	req.Header.Set("HashSHA256", base64.StdEncoding.EncodeToString(dst))
+	req.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	return ths.inner.Do(req)
 }
