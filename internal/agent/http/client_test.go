@@ -53,7 +53,9 @@ func TestSignDecorator_Do(t *testing.T) {
 			dst := h.Sum(nil)
 			require.True(t, bytes.Equal(hashFromReq, dst))
 
-			return nil, nil
+			return &http.Response{
+				Body: io.NopCloser(bytes.NewBufferString("ok")),
+			}, nil
 		})
 
 	req, err := http.NewRequest(
@@ -64,7 +66,9 @@ func TestSignDecorator_Do(t *testing.T) {
 	require.NoError(t, err)
 	client := NewSignDecorator(inner, signKey)
 
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	err = resp.Body.Close()
 	require.NoError(t, err)
 }
 
@@ -80,7 +84,9 @@ func TestXRealIPDecorator_Do(t *testing.T) {
 
 			require.Equal(t, "192.168.1.1", ip)
 
-			return nil, nil
+			return &http.Response{
+				Body: io.NopCloser(bytes.NewBufferString("ok")),
+			}, nil
 		})
 
 	req, err := http.NewRequest(
@@ -90,7 +96,9 @@ func TestXRealIPDecorator_Do(t *testing.T) {
 	)
 	require.NoError(t, err)
 	client := NewXRealIPDecorator(inner, net.ParseIP("192.168.1.1"))
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	err = resp.Body.Close()
 	require.NoError(t, err)
 }
 
@@ -117,7 +125,9 @@ func TestEncryptDecorator_Do(t *testing.T) {
 
 			require.True(t, bytes.Equal([]byte(requestBody), b))
 
-			return nil, nil
+			return &http.Response{
+				Body: io.NopCloser(bytes.NewBufferString("ok")),
+			}, nil
 		})
 
 	req, err := http.NewRequest(
@@ -127,6 +137,8 @@ func TestEncryptDecorator_Do(t *testing.T) {
 	)
 	require.NoError(t, err)
 	client := NewEncryptDecorator(inner, &privateKey.PublicKey)
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	err = resp.Body.Close()
 	require.NoError(t, err)
 }
