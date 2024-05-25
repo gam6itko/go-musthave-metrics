@@ -166,7 +166,7 @@ func newFileStorage(cfg config.Config) *file.Storage {
 	}
 
 	if cfg.Restore {
-		if err := fs.Load(); err != nil {
+		if err = fs.Load(); err != nil {
 			Log.Fatal(err.Error())
 		}
 	}

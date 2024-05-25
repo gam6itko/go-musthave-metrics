@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 	mock_http "github.com/gam6itko/go-musthave-metrics/internal/agent/http/mocks"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"github.com/golang/mock/gomock"
@@ -54,12 +53,12 @@ func TestSignDecorator_Do(t *testing.T) {
 			dst := h.Sum(nil)
 			require.True(t, bytes.Equal(hashFromReq, dst))
 
-			return &http.Response{}, nil
+			return nil, nil
 		})
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("http://example.com/"),
+		"http://example.com/",
 		bytes.NewBuffer([]byte(requestBody)),
 	)
 	require.NoError(t, err)
@@ -81,14 +80,15 @@ func TestXRealIPDecorator_Do(t *testing.T) {
 
 			require.Equal(t, "192.168.1.1", ip)
 
-			return &http.Response{}, nil
+			return nil, nil
 		})
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("http://example.com/"),
+		"http://example.com/",
 		nil,
 	)
+	require.NoError(t, err)
 	client := NewXRealIPDecorator(inner, net.ParseIP("192.168.1.1"))
 	_, err = client.Do(req)
 	require.NoError(t, err)
@@ -107,23 +107,25 @@ func TestEncryptDecorator_Do(t *testing.T) {
 	inner.EXPECT().
 		Do(gomock.Any()).
 		DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			bRequestBody, err := io.ReadAll(req.Body)
+			var bRequestBody, b []byte
+			bRequestBody, err = io.ReadAll(req.Body)
 			require.NoError(t, err)
 
 			hash := sha256.New()
-			b, err := rsautils.DecryptOAEP(hash, rand.Reader, privateKey, bRequestBody, nil)
+			b, err = rsautils.DecryptOAEP(hash, rand.Reader, privateKey, bRequestBody, nil)
 			require.NoError(t, err)
 
 			require.True(t, bytes.Equal([]byte(requestBody), b))
 
-			return &http.Response{}, nil
+			return nil, nil
 		})
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("http://example.com/"),
+		"http://example.com/",
 		bytes.NewBuffer([]byte(requestBody)),
 	)
+	require.NoError(t, err)
 	client := NewEncryptDecorator(inner, &privateKey.PublicKey)
 	_, err = client.Do(req)
 	require.NoError(t, err)
