@@ -19,7 +19,7 @@ func runGRPCServer(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 
-	listen, err := net.Listen("tcp", ":3200")
+	listen, err := net.Listen("tcp", Cfg.GRPCAddress)
 	if err != nil {
 		log.Fatal(err)
 	}

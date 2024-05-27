@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
-	http2 "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
+	agent_http "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/sender"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
@@ -200,8 +200,8 @@ func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metri
 	return ch
 }
 
-func buildHTTPClient() http2.IClient {
-	var client http2.IClient
+func buildHTTPClient() agent_http.IClient {
+	var client agent_http.IClient
 	client = &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -211,7 +211,7 @@ func buildHTTPClient() http2.IClient {
 		if err != nil {
 			log.Fatal(err)
 		}
-		client = http2.NewEncryptDecorator(client, rsautils.BytesToPublicKey(b))
+		client = agent_http.NewEncryptDecorator(client, rsautils.BytesToPublicKey(b))
 	}
 
 	if AppConfig.XRealIP != "" {
@@ -219,11 +219,11 @@ func buildHTTPClient() http2.IClient {
 		if ip == nil {
 			log.Fatalf("Invalid XRealIP string %s", AppConfig.XRealIP)
 		}
-		client = http2.NewXRealIPDecorator(client, ip)
+		client = agent_http.NewXRealIPDecorator(client, ip)
 	}
 
 	if AppConfig.SignKey != "" {
-		client = http2.NewSignDecorator(client, AppConfig.SignKey)
+		client = agent_http.NewSignDecorator(client, AppConfig.SignKey)
 	}
 
 	return client
