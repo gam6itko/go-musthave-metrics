@@ -13,6 +13,8 @@ RESTORE=true
 DATABASE_DSN=postgres://postgres:password@172.22.0.2:5432/yp_metrics
 KEY=key
 CRYPTO_KEY=/tmp/go-musthave-metrics/private.pem
+TRUSTED_SUBNET=192.168.0.0/24
+GRPC_ADDRESS=localhost:3200
 ```
 
 ### get docker ip
@@ -31,6 +33,8 @@ POLL_INTERVAL=2
 KEY="abc"
 RATE_LIMIT=4
 CRYPTO_KEY=/tmp/go-musthave-metrics/public.key
+X_REAL_IP=192.168.1.1
+USE_GRPC=true
 ```
 
 # sprint
@@ -134,4 +138,12 @@ go build -o staticlint ./cmd/staticlint/
 ```shell
 go build -o keygen ./cmd/keygen 
 ./keygen -path .
+```
+
+
+### iter25
+
+```shell
+protoc --go_out=. --go_opt=paths=source_relative \
+  --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/message.proto
 ```

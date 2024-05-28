@@ -1,24 +1,21 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	cryrand "crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/agent/config"
+	agent_http "github.com/gam6itko/go-musthave-metrics/internal/agent/http"
+	"github.com/gam6itko/go-musthave-metrics/internal/agent/sender"
 	"github.com/gam6itko/go-musthave-metrics/internal/common"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	sync2 "github.com/gam6itko/go-musthave-metrics/internal/sync"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -43,9 +40,8 @@ type metrics struct {
 	runtime.MemStats
 }
 
-var _cfg config.Config
-var _stat metrics
-var _rsaPublicKey *rsa.PublicKey
+var AppConfig config.Config
+var Stat metrics
 
 var (
 	buildVersion = "N/A"
@@ -58,24 +54,11 @@ func init() {
 	fmt.Printf("Build date: %s\n", buildDate)
 	fmt.Printf("Build commit: %s\n", buildCommit)
 
-	_cfg = initConfig()
+	AppConfig = initConfig()
 
-	if _cfg.RSAPublicKey != "" {
-		_rsaPublicKey = loadPublicKey(_cfg.RSAPublicKey)
-	}
-
-	_stat = metrics{
+	Stat = metrics{
 		PollCount: 0,
 	}
-}
-
-// loadPublicKey загружает publicKey из файла.
-func loadPublicKey(path string) *rsa.PublicKey {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return rsautils.BytesToPublicKey(b)
 }
 
 func main() {
@@ -107,12 +90,12 @@ func main() {
 					mux.Lock()
 					defer mux.Unlock()
 
-					runtime.ReadMemStats(&_stat.MemStats)
+					runtime.ReadMemStats(&Stat.MemStats)
 					// custom
-					_stat.PollCount++
-					_stat.RandomValue = rand.Float64()
+					Stat.PollCount++
+					Stat.RandomValue = rand.Float64()
 				}()
-				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+				time.Sleep(time.Duration(AppConfig.PollInterval) * time.Second)
 			}
 		}(ctx, &wg)
 
@@ -133,22 +116,24 @@ func main() {
 					defer mux.Unlock()
 
 					v, _ := mem.VirtualMemory()
-					_stat.TotalMemory = v.Total
-					_stat.FreeMemory = v.Free
+					Stat.TotalMemory = v.Total
+					Stat.FreeMemory = v.Free
 					util, err := cpu.Percent(time.Second, true)
 					if err != nil {
 						log.Printf("cpu error: %s", err)
 					}
-					_stat.CPUUtilization = util
+					Stat.CPUUtilization = util
 				}()
-				time.Sleep(time.Duration(_cfg.PollInterval) * time.Second)
+				time.Sleep(time.Duration(AppConfig.PollInterval) * time.Second)
 			}
 		}(ctx, &wg)
 
 		wg.Add(1)
-		go startReporting(ctx, &mux, &wg)
+		ch := initSending(ctx, &wg)
+		go startReporting(ctx, &mux, &wg, ch)
 
 		wg.Wait()
+
 		log.Printf("DEBUG. stop http server")
 		if err2 := server.Shutdown(context.Background()); err2 != nil {
 			log.Printf("ERROR. server shutdown error: %s", err2)
@@ -160,11 +145,95 @@ func main() {
 	}
 }
 
+// initSending создаёт и прослушивает канал для отправки метрик.
+func initSending(ctx context.Context, wg *sync.WaitGroup) chan<- []*common.Metrics {
+	ch := make(chan []*common.Metrics)
+
+	var s sender.ISender
+	if AppConfig.UseGRPC {
+		// устанавливаем соединение с сервером
+		conn, err := grpc.NewClient(
+			AppConfig.Address,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//todo close connection
+		s = sender.NewGRPCSender(conn)
+		log.Printf("DEBUG. Use gRPC sender for address %s", AppConfig.Address)
+	} else {
+		httpClient := buildHTTPClient()
+		s = sender.NewHTTPSender(httpClient, AppConfig.Address)
+		log.Printf("DEBUG. Use HTTP sender for address %s", AppConfig.Address)
+	}
+
+	wg.Add(1)
+	go func(s sender.ISender) {
+		defer wg.Done()
+
+		var semaphore sync2.ISemaphore
+		semaphore = &sync2.NullSemaphore{}
+		if AppConfig.RateLimit > 0 {
+			semaphore = sync2.NewSemaphore(AppConfig.RateLimit)
+		}
+
+		for metricList := range ch {
+			select {
+			default:
+			case <-ctx.Done():
+				log.Printf("DEBUG. exit from HTTP s")
+				return // exit from goroutine
+			}
+
+			go func(metricList []*common.Metrics) {
+				semaphore.Acquire()
+				defer semaphore.Release()
+
+				if err := s.Send(ctx, metricList); err != nil {
+					log.Printf("Failed to send metrics: %v", err)
+				}
+			}(metricList)
+		}
+	}(s)
+
+	return ch
+}
+
+func buildHTTPClient() agent_http.IClient {
+	var client agent_http.IClient
+	client = &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	if AppConfig.RSAPublicKey != "" {
+		b, err := os.ReadFile(AppConfig.RSAPublicKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+		client = agent_http.NewEncryptDecorator(client, rsautils.BytesToPublicKey(b))
+	}
+
+	if AppConfig.XRealIP != "" {
+		ip := net.ParseIP(AppConfig.XRealIP)
+		if ip == nil {
+			log.Fatalf("Invalid XRealIP string %s", AppConfig.XRealIP)
+		}
+		client = agent_http.NewXRealIPDecorator(client, ip)
+	}
+
+	if AppConfig.SignKey != "" {
+		client = agent_http.NewSignDecorator(client, AppConfig.SignKey)
+	}
+
+	return client
+}
+
 // startReporting запустить сбор и отправку метрик.
-func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) {
+func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup, ch chan<- []*common.Metrics) {
 	defer wg.Done()
 
-	GaugeToSend := []string{
+	gaugeToSend := []string{
 		"Alloc",
 		"BuckHashSys",
 		"Frees",
@@ -199,11 +268,7 @@ func startReporting(ctx context.Context, mux *sync.RWMutex, wg *sync.WaitGroup) 
 		"FreeMemory",
 	}
 
-	httpClient := http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	sleepDuration := time.Duration(_cfg.ReportInterval) * time.Second
+	sleepDuration := time.Duration(AppConfig.ReportInterval) * time.Second
 infLoop:
 	for {
 		select {
@@ -214,17 +279,17 @@ infLoop:
 		}
 
 		time.Sleep(sleepDuration)
-		log.Printf("sending metrics: %d\n", _stat.PollCount)
+		log.Printf("DEBUG. sending metrics: %d\n", Stat.PollCount)
 
-		func() {
+		ch <- func() []*common.Metrics {
 			mux.RLock()
 			defer mux.RUnlock()
 
-			refValue := reflect.ValueOf(_stat)
+			refValue := reflect.ValueOf(Stat)
 
-			metricList := make([]*common.Metrics, 0, len(GaugeToSend)+2)
+			metricList := make([]*common.Metrics, 0, len(gaugeToSend)+2)
 
-			for _, gName := range GaugeToSend {
+			for _, gName := range gaugeToSend {
 				f := reflect.Indirect(refValue).FieldByName(gName)
 
 				m := &common.Metrics{
@@ -250,12 +315,12 @@ infLoop:
 				&common.Metrics{
 					ID:    "PollCount",
 					MType: "counter",
-					Delta: common.Int64Ref(_stat.PollCount),
+					Delta: common.Int64Ref(Stat.PollCount),
 				},
 			)
 
 			//gopsutils cpu
-			for i, val := range _stat.CPUUtilization {
+			for i, val := range Stat.CPUUtilization {
 				metricList = append(
 					metricList,
 					&common.Metrics{
@@ -266,76 +331,7 @@ infLoop:
 				)
 			}
 
-			if err := sendMetrics(&httpClient, metricList); err != nil {
-				log.Printf("errors making http request: %s\n", err)
-			}
+			return metricList
 		}()
 	}
-}
-
-// sendMetrics отправляет мертрики на сервер.
-func sendMetrics(httpClient *http.Client, metricList []*common.Metrics) error {
-	g := new(errgroup.Group)
-
-	var semaphore sync2.ISemaphore
-	semaphore = &sync2.NullSemaphore{}
-	if _cfg.RateLimit > 0 {
-		semaphore = sync2.NewSemaphore(_cfg.RateLimit)
-	}
-
-	g.Go(func() error {
-		semaphore.Acquire()
-		defer semaphore.Release()
-
-		requestBody := bytes.NewBuffer([]byte{})
-		encoder := json.NewEncoder(requestBody)
-		if err := encoder.Encode(metricList); err != nil {
-			return err
-		}
-
-		if _rsaPublicKey != nil {
-			hash := sha256.New()
-			enc, err := rsautils.EncryptOAEP(hash, cryrand.Reader, _rsaPublicKey, requestBody.Bytes(), nil)
-			if err != nil {
-				log.Fatal(err)
-			}
-			requestBody = bytes.NewBuffer(enc)
-		}
-
-		req, err := http.NewRequest(
-			http.MethodPost,
-			fmt.Sprintf("http://%s/updates/", _cfg.Address),
-			requestBody,
-		)
-		if err != nil {
-			return err
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-
-		if _cfg.SignKey != "" {
-			// подписываем алгоритмом HMAC, используя SHA-256
-			h := hmac.New(sha256.New, []byte(_cfg.SignKey))
-			if _, wErr := h.Write(requestBody.Bytes()); wErr != nil {
-				return wErr
-			}
-			dst := h.Sum(nil)
-
-			base64Enc := base64.StdEncoding.EncodeToString(dst)
-			req.Header.Set("HashSHA256", base64Enc)
-		}
-
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			return err
-		}
-
-		if err2 := resp.Body.Close(); err2 != nil {
-			log.Printf("ERROR. close body: %s", err2)
-		}
-
-		return nil
-	})
-
-	return g.Wait()
 }

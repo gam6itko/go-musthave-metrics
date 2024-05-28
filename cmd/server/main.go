@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/config"
-	"github.com/gam6itko/go-musthave-metrics/internal/server/controller"
+	"github.com/gam6itko/go-musthave-metrics/internal/server/http/controller"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/database"
 	"github.com/gam6itko/go-musthave-metrics/internal/server/storage/fallback"
@@ -25,15 +25,14 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
 
-// TODO: bad Паучье чутьё подсказывает, что так делать плохо. Но у меня пока что нет идей как сделать хорошо.
 var MetricStorage storage.IStorage
 var Database *sql.DB
-var _key string
-var _rsaPrivateKey *rsa.PrivateKey
+var Cfg config.Config
 
 var (
 	buildVersion = "N/A"
@@ -48,25 +47,18 @@ func init() {
 }
 
 func main() {
-	cfg := initConfig()
+	Cfg = initConfig()
 
-	if cfg.RSAPrivateKey != "" {
-		_rsaPrivateKey = loadPrivateKey(cfg.RSAPrivateKey)
-	}
-	if cfg.SignKey != "" {
-		_key = cfg.SignKey
-	}
-
-	tmpDB, err := sql.Open("pgx", cfg.DatabaseDSN)
+	tmpDB, err := sql.Open("pgx", Cfg.DatabaseDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
 	Database = tmpDB
-	if err2 := database.InitSchema(Database); err2 != nil {
-		log.Fatalf("Failed to initialize database. %s", err2)
+	if err = database.InitSchema(Database); err != nil {
+		log.Fatalf("Failed to initialize database. %s", err)
 	}
 
-	fileStorage := newFileStorage(cfg)
+	fileStorage := newFileStorage(Cfg)
 	MetricStorage = fallback.NewStorage(
 		retrible.NewStorage(
 			database.NewStorage(Database),
@@ -79,18 +71,17 @@ func main() {
 		fileStorage,
 	)
 
-	server := &http.Server{
-		Addr:    cfg.Address,
-		Handler: newRouter(),
-	}
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go catchSignal(server)
+	wg := &sync.WaitGroup{}
 
-	Log.Info("Starting server", zap.String("addr", cfg.Address))
-	if err := server.ListenAndServe(); err != nil {
-		// записываем в лог ошибку, если сервер не запустился
-		Log.Info(err.Error(), zap.String("event", "start server"))
-	}
+	wg.Add(1)
+	go runHTTPServer(ctx, wg)
+
+	wg.Add(1)
+	go runGRPCServer(ctx, wg)
+
+	wg.Wait()
 
 	// on server.stop
 	if err := fileStorage.Save(context.TODO()); err != nil {
@@ -98,6 +89,35 @@ func main() {
 	}
 	if err2 := fileStorage.Close(); err2 != nil {
 		log.Printf("ERROR. failed to close fileStorage: %v", err2)
+	}
+}
+
+func runHTTPServer(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	if Cfg.Address == "" {
+		Log.Info("HTTP server not started. Address not defined.")
+		return
+	}
+
+	server := &http.Server{
+		Addr:    Cfg.Address,
+		Handler: newRouter(),
+	}
+
+	go func() {
+		<-ctx.Done()
+
+		Log.Info("Shutting down server gracefully")
+		if err := server.Shutdown(context.Background()); err != nil {
+			Log.Info("Error from shutdown", zap.String("error", err.Error()))
+		}
+	}()
+
+	Log.Info("Starting HTTP server", zap.String("addr", Cfg.Address))
+	if err := server.ListenAndServe(); err != nil {
+		// записываем в лог ошибку, если сервер не запустился
+		Log.Info(err.Error(), zap.String("event", "start server"))
 	}
 }
 
@@ -113,6 +133,7 @@ func newRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(requestLoggingMiddleware)
+	r.Use(trustedSubnetMiddleware)
 	r.Use(hashCheckMiddleware)
 	r.Use(rsaDecodeMiddleware)
 	r.Use(compressMiddleware)
@@ -145,7 +166,7 @@ func newFileStorage(cfg config.Config) *file.Storage {
 	}
 
 	if cfg.Restore {
-		if err := fs.Load(); err != nil {
+		if err = fs.Load(); err != nil {
 			Log.Fatal(err.Error())
 		}
 	}
@@ -163,18 +184,4 @@ func newFileStorage(cfg config.Config) *file.Storage {
 	}
 
 	return fs
-}
-
-func catchSignal(server *http.Server) {
-	terminateSignals := make(chan os.Signal, 1)
-
-	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT) //NOTE:: syscall.SIGKILL we cannot catch kill -9 as its force kill signal.
-
-	s := <-terminateSignals
-	Log.Info("Got one of stop signals, shutting down server gracefully", zap.String("signal", s.String()))
-	// metrics save
-
-	if err := server.Shutdown(context.Background()); err != nil {
-		Log.Info("Error from shutdown", zap.String("error", err.Error()))
-	}
 }

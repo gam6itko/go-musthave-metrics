@@ -9,6 +9,15 @@ import (
 )
 
 type Config struct {
+	// аналог переменной окружения REPORT_INTERVAL или флага -r
+	ReportInterval uint64 `json:"report_interval"`
+	// аналог переменной окружения POLL_INTERVAL или флага -p
+	PollInterval uint64 `json:"poll_interval"`
+
+	RateLimit uint64
+
+	//// HTTP client
+
 	// аналог переменной окружения ADDRESS или флага -a
 	Address string `json:"address"`
 
@@ -17,12 +26,12 @@ type Config struct {
 
 	SignKey string
 
-	// аналог переменной окружения REPORT_INTERVAL или флага -r
-	ReportInterval uint64 `json:"report_interval"`
-	// аналог переменной окружения POLL_INTERVAL или флага -p
-	PollInterval uint64 `json:"poll_interval"`
+	// Имитация определенного клиентского IP
+	XRealIP string `json:"x-real-ip"`
 
-	RateLimit uint64
+	//// gRPC client
+
+	UseGRPC bool `json:"use_jrpc"`
 }
 
 // Merge добавляет параметры из donor если они не пустые.
@@ -37,6 +46,9 @@ func (ths *Config) Merge(donor Config) {
 	if donor.SignKey != "" {
 		ths.SignKey = donor.SignKey
 	}
+	if donor.XRealIP != "" {
+		ths.XRealIP = donor.XRealIP
+	}
 	// int
 	if donor.ReportInterval != 0 {
 		ths.ReportInterval = donor.ReportInterval
@@ -44,10 +56,13 @@ func (ths *Config) Merge(donor Config) {
 	if donor.PollInterval != 0 {
 		ths.PollInterval = donor.PollInterval
 	}
+
+	if donor.UseGRPC {
+		ths.UseGRPC = donor.UseGRPC
+	}
 }
 
 type FlagsConfig struct {
-
 	// -c / -config
 	ConfigPath string
 
@@ -57,13 +72,15 @@ type FlagsConfig struct {
 func FromFlags() FlagsConfig {
 	cfg := FlagsConfig{}
 
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "Server address host:port")
+	flag.StringVar(&cfg.Address, "a", "", "Server address host:port")
 	flag.Uint64Var(&cfg.ReportInterval, "r", 10, "Report interval")
 	flag.Uint64Var(&cfg.PollInterval, "p", 2, "Poll interval")
 	flag.Uint64Var(&cfg.RateLimit, "l", 0, "Request rate limit")
 	flag.StringVar(&cfg.RSAPublicKey, "crypto-key", "", "Public key")
 
 	flag.StringVar(&cfg.SignKey, "k", "", "Hash key")
+	flag.StringVar(&cfg.XRealIP, "ip", "", "Set X-Real-IP header")
+	flag.BoolVar(&cfg.UseGRPC, "use-grpc", false, "Use gRPC client instead of HTTP client")
 
 	var configPathShort string
 	flag.StringVar(&configPathShort, "c", "", "Config path short alias")
@@ -93,6 +110,16 @@ func FromEnv() EnvConfig {
 	}
 	if envVal, exists := os.LookupEnv("KEY"); exists {
 		c.SignKey = envVal
+	}
+	if envVal, exists := os.LookupEnv("X_REAL_IP"); exists {
+		c.XRealIP = envVal
+	}
+	if envVal, exists := os.LookupEnv("USE_GRPC"); exists {
+		boolVal, err := strconv.ParseBool(envVal)
+		if err != nil {
+			log.Fatal(err)
+		}
+		c.UseGRPC = boolVal
 	}
 
 	// uint

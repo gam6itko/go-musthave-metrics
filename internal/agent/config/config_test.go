@@ -13,6 +13,8 @@ func TestConfig_Merge(t *testing.T) {
 		PollInterval:   888,
 		RSAPublicKey:   "RSAPublicKey",
 		SignKey:        "SignKey",
+		XRealIP:        "192.168.0.1",
+		UseGRPC:        true,
 	}
 
 	cfg.Merge(donor)
@@ -21,4 +23,6 @@ func TestConfig_Merge(t *testing.T) {
 	require.Equal(t, uint64(888), cfg.PollInterval)
 	require.Equal(t, "RSAPublicKey", cfg.RSAPublicKey)
 	require.Equal(t, "SignKey", cfg.SignKey)
+	require.Equal(t, "192.168.0.1", cfg.XRealIP)
+	require.True(t, cfg.UseGRPC)
 }

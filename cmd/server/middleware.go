@@ -6,9 +6,12 @@ import (
 	cryrand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"github.com/gam6itko/go-musthave-metrics/internal/rsautils"
 	"go.uber.org/zap"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -99,12 +102,11 @@ func compressMiddleware(h http.Handler) http.Handler {
 }
 
 func hashCheckMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _key == "" {
-			handler.ServeHTTP(w, r)
-			return
-		}
+	if Cfg.SignKey == "" {
+		return handler
+	}
 
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		base64str := r.Header.Get("HashSHA256")
 		if base64str == "" {
 			handler.ServeHTTP(w, r)
@@ -129,7 +131,7 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 			return
 		}
 
-		h := hmac.New(sha256.New, []byte(_key))
+		h := hmac.New(sha256.New, []byte(Cfg.SignKey))
 		if _, err := h.Write(bRequestBody); err != nil {
 			Log.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
@@ -150,12 +152,13 @@ func hashCheckMiddleware(handler http.Handler) http.Handler {
 }
 
 func rsaDecodeMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _rsaPrivateKey == nil {
-			handler.ServeHTTP(w, r)
-			return
-		}
+	if Cfg.RSAPrivateKey == "" {
+		return handler
+	}
 
+	privateKey := loadPrivateKey(Cfg.RSAPrivateKey)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		bRequestBody, err := io.ReadAll(r.Body)
@@ -166,7 +169,7 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 		}
 
 		hash := sha256.New()
-		b, err := rsautils.DecryptOAEP(hash, cryrand.Reader, _rsaPrivateKey, bRequestBody, nil)
+		b, err := rsautils.DecryptOAEP(hash, cryrand.Reader, privateKey, bRequestBody, nil)
 		if err != nil {
 			Log.Error(err.Error())
 			w.WriteHeader(http.StatusBadRequest)
@@ -182,5 +185,45 @@ func rsaDecodeMiddleware(handler http.Handler) http.Handler {
 		if _, err2 := w.Write(b); err2 != nil {
 			Log.Error(err2.Error())
 		}
+	})
+}
+
+func trustedSubnetMiddleware(handler http.Handler) http.Handler {
+	if Cfg.TrustedSubnet == "" {
+		return handler
+	}
+
+	_, subnetTrust, err := net.ParseCIDR(Cfg.TrustedSubnet)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ipStr := r.Header.Get("X-Real-IP")
+		if ipStr == "" {
+			w.WriteHeader(http.StatusForbidden)
+			if _, err = fmt.Fprint(w, "X-Real-IP is required"); err != nil {
+				log.Printf("ERROR. %s", err)
+			}
+			return
+		}
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			w.WriteHeader(http.StatusForbidden)
+			if _, err = fmt.Fprint(w, "X-Real-IP is incorrect"); err != nil {
+				log.Printf("ERROR. %s", err)
+			}
+			return
+		}
+
+		if !subnetTrust.Contains(ip) {
+			w.WriteHeader(http.StatusForbidden)
+			if _, err = fmt.Fprint(w, "X-Real-IP not from trusted subnet"); err != nil {
+				log.Printf("ERROR. %s", err)
+			}
+			return
+		}
+
+		handler.ServeHTTP(w, r)
 	})
 }
